@@ -1,0 +1,129 @@
+{
+  "name": "ABsmartly",
+  "description": "Flicker-free A/B testing at the edge with ABsmartly Managed Component",
+  "namespace": "absmartly",
+  "icon": "assets/absmartly.svg",
+  "categories": ["Analytics", "Optimization"],
+  "provides": ["events", "experiments"],
+  "allowCustomFields": true,
+  "settings": {
+    "DEPLOYMENT_MODE": {
+      "type": "string",
+      "description": "Deployment mode: 'zaraz' or 'webcm'",
+      "required": true,
+      "default": "zaraz"
+    },
+    "ABSMARTLY_API_KEY": {
+      "type": "string",
+      "description": "ABsmartly API Key",
+      "required": true
+    },
+    "ABSMARTLY_ENDPOINT": {
+      "type": "string",
+      "description": "ABsmartly API Endpoint (e.g., https://api.absmartly.io/v1)",
+      "required": true
+    },
+    "ABSMARTLY_ENVIRONMENT": {
+      "type": "string",
+      "description": "ABsmartly Environment name",
+      "required": true
+    },
+    "ABSMARTLY_APPLICATION": {
+      "type": "string",
+      "description": "ABsmartly Application name",
+      "required": true
+    },
+    "COOKIE_NAME": {
+      "type": "string",
+      "description": "Cookie name for user ID",
+      "required": false,
+      "default": "absmartly_id"
+    },
+    "COOKIE_MAX_AGE": {
+      "type": "number",
+      "description": "Cookie lifetime in days",
+      "required": false,
+      "default": 365
+    },
+    "HIDE_SELECTOR": {
+      "type": "string",
+      "description": "CSS selector to hide during experiment loading (Zaraz mode only)",
+      "required": false,
+      "default": "body"
+    },
+    "HIDE_TIMEOUT": {
+      "type": "number",
+      "description": "Maximum time to hide content in milliseconds",
+      "required": false,
+      "default": 3000
+    },
+    "TRANSITION_MS": {
+      "type": "number",
+      "description": "Fade-in transition duration in milliseconds",
+      "required": false,
+      "default": 300
+    },
+    "ENABLE_SPA_MODE": {
+      "type": "boolean",
+      "description": "Enable Single Page Application mode",
+      "required": false,
+      "default": true
+    },
+    "ENABLE_WEB_VITALS": {
+      "type": "boolean",
+      "description": "Enable Web Vitals tracking",
+      "required": false,
+      "default": false
+    },
+    "ENABLE_EMBEDS": {
+      "type": "boolean",
+      "description": "Enable server-side embed rendering",
+      "required": false,
+      "default": true
+    },
+    "ENABLE_DEBUG": {
+      "type": "boolean",
+      "description": "Enable debug logging",
+      "required": false,
+      "default": false
+    },
+    "SDK_TIMEOUT": {
+      "type": "number",
+      "description": "SDK timeout in milliseconds",
+      "required": false,
+      "default": 2000
+    },
+    "CONTEXT_CACHE_TTL": {
+      "type": "number",
+      "description": "Context cache TTL in seconds",
+      "required": false,
+      "default": 60
+    }
+  },
+  "permissions": {
+    "client_network_requests": {
+      "description": "ABsmartly needs to call the ABsmartly API to fetch experiment data",
+      "required": true
+    },
+    "execute_unsafe_scripts": {
+      "description": "ABsmartly needs to inject client-side code to apply DOM changes and track events (Zaraz mode)",
+      "required": true
+    },
+    "provide_server_functionality": {
+      "description": "ABsmartly needs server functionality to create contexts and track events at the edge",
+      "required": true
+    },
+    "provide_widget": {
+      "description": "ABsmartly uses embeds for server-side experiment rendering",
+      "required": false
+    },
+    "access_client_kv": {
+      "description": "ABsmartly uses cookies to persist user identity across sessions",
+      "required": true
+    },
+    "serve_static_files": {
+      "description": "ABsmartly may serve static assets if needed",
+      "required": false
+    }
+  }
+}
