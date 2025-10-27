@@ -215,6 +215,17 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 | `INJECT_CLIENT_BUNDLE` | boolean | `true` | Inject client bundle (anti-flicker + trigger-on-view) |
 | `ENABLE_TRIGGER_ON_VIEW` | boolean | `true` | Enable viewport exposure tracking with IntersectionObserver |
 
+### Client SDK Injection (Zaraz Only)
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `INJECT_CLIENT_SDK` | boolean | `false` | Inject ABsmartly SDK for client-side A/B testing (SPAs) |
+| `CLIENT_SDK_STRATEGY` | string | `"external"` | SDK injection strategy: `"bundled"` (served from /_zaraz/absmartly-sdk.js) or `"external"` (CDN) |
+| `CLIENT_SDK_CDN_PROVIDER` | string | `"unpkg"` | CDN provider for external SDK: `"unpkg"` or `"jsdelivr"` |
+| `CLIENT_SDK_VERSION` | string | `"latest"` | SDK version to load from CDN (e.g., `"1.15.0"`, `"latest"`) |
+| `CLIENT_SDK_URL` | string | - | Custom SDK URL (only used if `CLIENT_SDK_STRATEGY` is `"custom"`) |
+| `PASS_SERVER_PAYLOAD` | boolean | `true` | Pass server-side context data to client SDK (avoids CDN fetch on pageload) |
+
 ### Feature Flags
 
 | Setting | Type | Default | Description |
@@ -269,6 +280,36 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
   "ABSMARTLY_ENDPOINT": "https://api.absmartly.io/v1",
   "ABSMARTLY_ENVIRONMENT": "production",
   "ABSMARTLY_APPLICATION": "website"
+}
+```
+
+#### Zaraz Mode - With Client SDK (SPAs)
+```javascript
+{
+  "DEPLOYMENT_MODE": "zaraz",
+  "ABSMARTLY_API_KEY": "your-api-key",
+  "ABSMARTLY_ENDPOINT": "https://api.absmartly.io/v1",
+  "ABSMARTLY_ENVIRONMENT": "production",
+  "ABSMARTLY_APPLICATION": "website",
+  "INJECT_CLIENT_SDK": true,
+  "CLIENT_SDK_STRATEGY": "bundled",
+  "PASS_SERVER_PAYLOAD": true
+}
+```
+
+#### Zaraz Mode - Client SDK from CDN
+```javascript
+{
+  "DEPLOYMENT_MODE": "zaraz",
+  "ABSMARTLY_API_KEY": "your-api-key",
+  "ABSMARTLY_ENDPOINT": "https://api.absmartly.io/v1",
+  "ABSMARTLY_ENVIRONMENT": "production",
+  "ABSMARTLY_APPLICATION": "website",
+  "INJECT_CLIENT_SDK": true,
+  "CLIENT_SDK_STRATEGY": "external",
+  "CLIENT_SDK_CDN_PROVIDER": "jsdelivr",
+  "CLIENT_SDK_VERSION": "1.15.0",
+  "PASS_SERVER_PAYLOAD": true
 }
 ```
 
