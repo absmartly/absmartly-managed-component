@@ -4,12 +4,18 @@ import { ContextManager } from '../core/context-manager'
 import { CookieHandler } from '../core/cookie-handler'
 import { OverridesHandler } from '../core/overrides-handler'
 import { EventTracker } from '../core/event-tracker'
-import { ClientInjector } from './client-injector'
-import { EmbedHandler } from './embed-handler'
+import { ExperimentViewHandler } from '../core/experiment-view-handler'
+import { RequestHandler } from '../core/request-handler'
+import { EventHandlers } from '../core/event-handlers'
+import { HTMLProcessor } from '../core/html-processor'
+import { SDKInjector } from '../core/sdk-injector'
+import { generateClientBundle } from '../shared/client-bundle-generator'
 import { createLogger } from '../utils/logger'
-import { Logger } from '../types'
 
-export function setupZarazMode(manager: Manager, settings: ABSmartlySettings): void {
+export function setupZarazMode(
+  manager: Manager,
+  settings: ABSmartlySettings
+): void {
   const logger = createLogger(settings.ENABLE_DEBUG || false)
   logger.log('Initializing ABsmartly Managed Component - Zaraz mode')
 
@@ -17,20 +23,96 @@ export function setupZarazMode(manager: Manager, settings: ABSmartlySettings): v
   const contextManager = new ContextManager(manager, settings, logger)
   const cookieHandler = new CookieHandler(settings)
   const overridesHandler = new OverridesHandler()
-  const eventTracker = new EventTracker(manager, contextManager, cookieHandler, settings, logger)
-  const clientInjector = new ClientInjector(settings, logger)
-  const embedHandler = new EmbedHandler(manager, contextManager, cookieHandler, settings, logger)
+  const eventTracker = new EventTracker(
+    manager,
+    contextManager,
+    cookieHandler,
+    settings,
+    logger
+  )
+  const sdkInjector = new SDKInjector({ settings, logger })
+  const experimentViewHandler = new ExperimentViewHandler(
+    contextManager,
+    cookieHandler,
+    overridesHandler,
+    logger
+  )
+  const requestHandler = new RequestHandler({
+    contextManager,
+    cookieHandler,
+    overridesHandler,
+    settings,
+    logger,
+  })
+  const eventHandlers = new EventHandlers({
+    eventTracker,
+    experimentViewHandler,
+    logger,
+  })
 
-  // Set up embeds
-  embedHandler.setup()
+  // Intercept requests to process Treatment tags in HTML (if enabled)
+  if (settings.ENABLE_EMBEDS) {
+    manager.addEventListener('request', async (event: MCEvent) => {
+      const result = await requestHandler.handleRequest(event)
+
+      if (!result) {
+        await requestHandler.handleRequestError(event)
+        return
+      }
+
+      if (!result.shouldProcess) {
+        return
+      }
+
+      try {
+        // Type guard for Response object
+        const response = result.fetchResult as Response
+
+        // Only process HTML responses
+        const contentType = response.headers?.get('content-type') || ''
+        if (!contentType.includes('text/html')) {
+          logger.debug('Skipping non-HTML response', { contentType })
+          event.client.return(response)
+          return
+        }
+
+        // Get response HTML
+        let html = await response.text()
+
+        // Process HTML with Treatment tags and DOM changes (zero flicker!)
+        const processor = new HTMLProcessor({
+          settings,
+          logger,
+          useLinkedom: true, // Use linkedom for full CSS selector support
+        })
+        html = processor.processHTML(html, result.experimentData)
+
+        logger.debug('HTML processing completed (Treatment tags + DOM changes)')
+
+        // Return modified response
+        event.client.return(
+          new Response(html, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          })
+        )
+      } catch (error) {
+        logger.error('Request handler error for Treatment tags:', error)
+        await requestHandler.handleRequestError(event)
+      }
+    })
+  }
 
   // Handle pageview events - main experiment delivery
   manager.addEventListener('pageview', async (event: MCEvent) => {
     try {
-      logger.debug('Pageview event received', { url: event.client.url })
+      logger.debug('Pageview event received', {
+        url: event.client.url.toString(),
+      })
 
-      // 1. Get or create user ID
-      const userId = cookieHandler.getUserId(event.client)
+      // 1. Get or create user ID (with optional cookie management)
+      const userId = cookieHandler.ensureUserId(event.client)
       logger.debug('User ID', { userId })
 
       // 2. Store UTM params and landing page (first visit)
@@ -45,7 +127,7 @@ export function setupZarazMode(manager: Manager, settings: ABSmartlySettings): v
 
       // 4. Create context on edge (FAST!)
       const context = await contextManager.createContext(userId, overrides, {
-        url: event.client.url,
+        url: event.client.url.toString(),
         userAgent: event.client.userAgent,
         ip: event.client.ip,
       })
@@ -54,18 +136,40 @@ export function setupZarazMode(manager: Manager, settings: ABSmartlySettings): v
       const experimentData = contextManager.extractExperimentData(context)
       logger.debug('Experiments extracted', {
         count: experimentData.length,
-        experiments: experimentData.map((e) => ({ name: e.name, treatment: e.treatment })),
+        experiments: experimentData.map(e => ({
+          name: e.name,
+          treatment: e.treatment,
+        })),
       })
 
-      // 6. Inject debug info if enabled
-      if (settings.ENABLE_DEBUG) {
-        clientInjector.injectDebugInfo(event, { experiments: experimentData })
+      // 6. Inject client SDK if enabled
+      if (sdkInjector.shouldInjectSDK()) {
+        const contextData = settings.PASS_SERVER_PAYLOAD
+          ? context.getData()
+          : undefined
+
+        const sdkScript = sdkInjector.generateInjectionScript({
+          unitId: userId,
+          contextData,
+          overrides,
+          experiments: experimentData,
+        })
+
+        if (sdkScript) {
+          event.client.execute(sdkScript)
+          logger.debug('Client SDK injected')
+        }
       }
 
-      // 7. Inject client code
-      clientInjector.injectExperimentCode(event, { experiments: experimentData })
+      // 7. Inject debug info if enabled
+      if (settings.ENABLE_DEBUG) {
+        clientInjector.injectDebugInfo(event)
+      }
 
-      // 8. Track exposures immediately (context is short-lived on edge)
+      // 8. Inject client code (anti-flicker + trigger-on-view)
+      clientInjector.injectClientCode(event)
+
+      // 9. Track exposures immediately (context is short-lived on edge)
       await contextManager.publishContext(context)
       logger.debug('Exposures published')
     } catch (error) {
@@ -76,67 +180,10 @@ export function setupZarazMode(manager: Manager, settings: ABSmartlySettings): v
     }
   })
 
-  // Handle custom events (goals) and exposure tracking
-  manager.addEventListener('track', async (event: MCEvent) => {
-    try {
-      const eventName = event.payload?.name || event.payload?.goal_name
-      logger.debug('Track event received', { name: eventName })
+  // Set up event handlers (track, event, ecommerce)
+  eventHandlers.setupEventListeners(manager)
 
-      // Handle ExperimentView events for on-view exposure tracking
-      if (eventName === 'ExperimentView') {
-        const experimentName = event.payload?.experimentName
-        if (experimentName) {
-          logger.debug('ExperimentView event received', { experimentName })
-
-          // Get user ID
-          const userId = cookieHandler.getUserId(event.client)
-
-          // Get overrides
-          const overrides = overridesHandler.getOverrides(event)
-
-          // Get or create context
-          const context = await contextManager.getOrCreateContext(userId, overrides, {
-            url: event.client.url,
-            userAgent: event.client.userAgent,
-            ip: event.client.ip,
-          })
-
-          // Trigger exposure by calling treatment
-          context.treatment(experimentName)
-
-          // Publish exposure
-          await contextManager.publishContext(context)
-
-          logger.debug('Exposure tracked for experiment', { experimentName })
-        }
-      } else {
-        // Regular goal tracking
-        await eventTracker.trackGoal(event)
-      }
-    } catch (error) {
-      logger.error('Track event error:', error)
-    }
-  })
-
-  // Handle generic events
-  manager.addEventListener('event', async (event: MCEvent) => {
-    try {
-      logger.debug('Event received', { type: event.type })
-      await eventTracker.trackEvent(event)
-    } catch (error) {
-      logger.error('Event error:', error)
-    }
-  })
-
-  // Handle ecommerce events
-  manager.addEventListener('ecommerce', async (event: MCEvent) => {
-    try {
-      logger.debug('Ecommerce event received', { type: event.payload?.type })
-      await eventTracker.trackEcommerce(event)
-    } catch (error) {
-      logger.error('Ecommerce event error:', error)
-    }
-  })
-
-  logger.log('ABsmartly Managed Component - Zaraz mode initialized successfully')
+  logger.log(
+    'ABsmartly Managed Component - Zaraz mode initialized successfully'
+  )
 }

@@ -1,10 +1,19 @@
-import { FetchedRequest } from '@managed-components/types'
-import { ABSmartlySettings, ExperimentData } from '../types'
-import { HTMLParser } from './html-parser'
+import { ABSmartlySettings } from '../types'
+import type { ExperimentData } from '../types'
+import { HTMLProcessor } from '../core/html-processor'
 import { Logger } from '../types'
 
+// FetchedRequest is a WebCM-specific type not exported from @managed-components/types
+// Define it locally as an extension of Response with url property
+interface FetchedRequest extends Response {
+  url: string
+}
+
 export class ResponseManipulator {
-  constructor(private settings: ABSmartlySettings, private logger: Logger) {}
+  constructor(
+    private settings: ABSmartlySettings,
+    private logger: Logger
+  ) {}
 
   async manipulateResponse(
     request: FetchedRequest,
@@ -26,19 +35,13 @@ export class ResponseManipulator {
       // Get response body
       let html = await request.text()
 
-      // Apply all DOM changes from experiments
-      for (const experiment of experimentData) {
-        if (experiment.changes && experiment.changes.length > 0) {
-          this.logger.debug('Applying DOM changes for experiment', {
-            name: experiment.name,
-            treatment: experiment.treatment,
-            changesCount: experiment.changes.length,
-          })
-
-          const parser = new HTMLParser(html)
-          html = parser.applyChanges(experiment.changes)
-        }
-      }
+      // Process HTML with Treatment tags and DOM changes (zero flicker!)
+      const processor = new HTMLProcessor({
+        settings: this.settings,
+        logger: this.logger,
+        useLinkedom: true, // WebCM uses linkedom for full CSS selector support
+      })
+      html = processor.processHTML(html, experimentData)
 
       // Inject experiment data for client-side tracking (optional)
       if (this.settings.INJECT_CLIENT_DATA) {
@@ -83,7 +86,10 @@ export class ResponseManipulator {
     }
   }
 
-  private injectExperimentData(html: string, experimentData: ExperimentData[]): string {
+  private injectExperimentData(
+    html: string,
+    experimentData: ExperimentData[]
+  ): string {
     // Inject experiment data as a script tag for client-side access
     const dataScript = `
 <script id="absmartly-data" type="application/json">

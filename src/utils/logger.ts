@@ -4,16 +4,16 @@ export function createLogger(enableDebug: boolean): Logger {
   const prefix = '[ABSmartly MC]'
 
   return {
-    log: (...args: any[]) => {
+    log: (...args: unknown[]) => {
       console.log(prefix, ...args)
     },
-    error: (...args: any[]) => {
+    error: (...args: unknown[]) => {
       console.error(prefix, ...args)
     },
-    warn: (...args: any[]) => {
+    warn: (...args: unknown[]) => {
       console.warn(prefix, ...args)
     },
-    debug: (...args: any[]) => {
+    debug: (...args: unknown[]) => {
       if (enableDebug) {
         console.log(`${prefix} [DEBUG]`, ...args)
       }

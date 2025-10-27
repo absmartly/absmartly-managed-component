@@ -48,21 +48,26 @@ describe('EventTracker', () => {
     }
 
     mockClient = {
-      url: 'https://example.com',
+      url: new URL('https://example.com'),
     }
 
     mockEvent = {
       client: mockClient as Client,
-      payload: {},
+      payload: {} as any,
     }
+  })
+
+  const createMockEvent = (payload: any = {}): Partial<MCEvent> => ({
+    client: mockClient as Client,
+    payload: payload as any,
   })
 
   describe('trackGoal', () => {
     it('should track goal with properties', async () => {
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         name: 'signup',
         properties: { source: 'homepage' },
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -81,9 +86,9 @@ describe('EventTracker', () => {
     })
 
     it('should track goal with empty properties', async () => {
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         name: 'page_view',
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -100,7 +105,7 @@ describe('EventTracker', () => {
 
     it('should warn and return if no user ID', async () => {
       cookieHandler.getUserId = vi.fn().mockReturnValue(null)
-      mockEvent.payload = { name: 'test_goal' }
+      mockEvent = createMockEvent({ name: 'test_goal' })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -117,7 +122,7 @@ describe('EventTracker', () => {
     })
 
     it('should handle errors gracefully', async () => {
-      mockEvent.payload = { name: 'test_goal' }
+      mockEvent = createMockEvent({ name: 'test_goal' })
       contextManager.getOrCreateContext = vi.fn().mockRejectedValue(new Error('Context error'))
 
       const tracker = new EventTracker(
@@ -136,7 +141,7 @@ describe('EventTracker', () => {
 
   describe('trackEvent', () => {
     it('should call trackGoal', async () => {
-      mockEvent.payload = { name: 'custom_event' }
+      mockEvent = createMockEvent({ name: 'custom_event' })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -154,7 +159,7 @@ describe('EventTracker', () => {
 
   describe('trackEcommerce', () => {
     it('should track purchase event with revenue', async () => {
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         type: 'purchase',
         revenue: 99.99,
         currency: 'USD',
@@ -163,7 +168,7 @@ describe('EventTracker', () => {
           { id: 'item1', name: 'Product 1', price: 49.99 },
           { id: 'item2', name: 'Product 2', price: 50.00 },
         ],
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -191,10 +196,10 @@ describe('EventTracker', () => {
     })
 
     it('should track add_to_cart event', async () => {
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         type: 'add_to_cart',
         items: [{ id: 'item1', name: 'Product 1' }],
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -214,10 +219,10 @@ describe('EventTracker', () => {
     })
 
     it('should track purchase with default currency when not specified', async () => {
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         type: 'purchase',
         revenue: 50.00,
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -236,10 +241,10 @@ describe('EventTracker', () => {
     })
 
     it('should not track revenue for non-purchase events', async () => {
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         type: 'view_item',
         revenue: 99.99,
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -257,7 +262,7 @@ describe('EventTracker', () => {
 
     it('should warn and return if no user ID', async () => {
       cookieHandler.getUserId = vi.fn().mockReturnValue(null)
-      mockEvent.payload = { type: 'purchase' }
+      mockEvent = createMockEvent({ type: 'purchase' })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -274,7 +279,7 @@ describe('EventTracker', () => {
     })
 
     it('should handle errors gracefully', async () => {
-      mockEvent.payload = { type: 'purchase' }
+      mockEvent = createMockEvent({ type: 'purchase' })
       contextManager.getOrCreateContext = vi.fn().mockRejectedValue(new Error('Context error'))
 
       const tracker = new EventTracker(
@@ -293,12 +298,12 @@ describe('EventTracker', () => {
 
   describe('trackWebVital', () => {
     it('should track web vital metric', async () => {
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         name: 'LCP',
         value: 2500,
         rating: 'good',
         delta: 100,
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -320,12 +325,12 @@ describe('EventTracker', () => {
 
     it('should not track if web vitals disabled', async () => {
       settings.ENABLE_WEB_VITALS = false
-      mockEvent.payload = {
+      mockEvent = createMockEvent({
         name: 'FCP',
         value: 1800,
         rating: 'good',
         delta: 50,
-      }
+      })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -343,7 +348,7 @@ describe('EventTracker', () => {
 
     it('should return if no user ID', async () => {
       cookieHandler.getUserId = vi.fn().mockReturnValue(null)
-      mockEvent.payload = { name: 'CLS', value: 0.1 }
+      mockEvent = createMockEvent({ name: 'CLS', value: 0.1 })
 
       const tracker = new EventTracker(
         manager as Manager,
@@ -359,7 +364,7 @@ describe('EventTracker', () => {
     })
 
     it('should handle errors gracefully', async () => {
-      mockEvent.payload = { name: 'FID', value: 100 }
+      mockEvent = createMockEvent({ name: 'FID', value: 100 })
       contextManager.getOrCreateContext = vi.fn().mockRejectedValue(new Error('Context error'))
 
       const tracker = new EventTracker(

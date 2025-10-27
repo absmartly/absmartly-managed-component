@@ -25,8 +25,9 @@ describe('EmbedHandler', () => {
     embedCallback = vi.fn()
 
     manager = {
-      registerEmbed: vi.fn((name: string, callback: Function) => {
+      registerEmbed: vi.fn((name: string, callback: Function): boolean => {
         embedCallback = callback
+        return true
       }),
     }
 
@@ -124,7 +125,7 @@ describe('EmbedHandler', () => {
         ],
       })
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('<div>Variant A</div>')
       expect(cookieHandler.getUserId).toHaveBeenCalledWith(mockClient)
@@ -137,7 +138,7 @@ describe('EmbedHandler', () => {
 
       mockContext.treatment.mockReturnValue(-1) // Not eligible
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('Default content')
     })
@@ -148,7 +149,7 @@ describe('EmbedHandler', () => {
 
       mockContext.treatment.mockReturnValue(undefined)
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('Default content')
     })
@@ -156,14 +157,14 @@ describe('EmbedHandler', () => {
     it('should return default content when no experiment name provided', async () => {
       mockPayload.set('default', 'Default content')
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('Default content')
       expect(logger.warn).toHaveBeenCalledWith('No experiment name provided for embed')
     })
 
     it('should return empty string if no default provided', async () => {
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('')
     })
@@ -182,7 +183,7 @@ describe('EmbedHandler', () => {
         ],
       })
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('Default content')
       expect(logger.warn).toHaveBeenCalledWith('Experiment not found in context', {
@@ -206,7 +207,7 @@ describe('EmbedHandler', () => {
         ],
       })
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('Default content')
       expect(logger.warn).toHaveBeenCalledWith('Variant not found', {
@@ -231,14 +232,13 @@ describe('EmbedHandler', () => {
         ],
       })
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
       expect(result).toBe('<p>Content</p>')
     })
 
-    it('should return default content when no config.html or config.content', async () => {
+    it('should return empty string when no config.html or config.content', async () => {
       mockPayload.set('exp-name', 'experiment1')
-      mockPayload.set('default', 'Default content')
 
       mockContext.treatment.mockReturnValue(0)
       mockContext.getData.mockReturnValue({
@@ -252,20 +252,19 @@ describe('EmbedHandler', () => {
         ],
       })
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
-      expect(result).toBe('Default content')
+      expect(result).toBe('')
     })
 
     it('should handle errors gracefully', async () => {
       mockPayload.set('exp-name', 'experiment1')
-      mockPayload.set('default', 'Default content')
 
       contextManager.getOrCreateContext = vi.fn().mockRejectedValue(new Error('Context error'))
 
-      const result = await embedCallback({ client: mockClient, payload: mockPayload })
+      const result = await embedCallback({ client: mockClient, parameters: Object.fromEntries(mockPayload) })
 
-      expect(result).toBe('Default content')
+      expect(result).toBe('')
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to handle experiment embed:',
         expect.any(Error)

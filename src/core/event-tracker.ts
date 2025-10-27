@@ -1,5 +1,10 @@
 import { Manager, MCEvent } from '@managed-components/types'
-import { ABSmartlySettings, EventPayload, EcommercePayload, WebVitalMetric } from '../types'
+import {
+  ABSmartlySettings,
+  EventPayload,
+  EcommercePayload,
+  WebVitalMetric,
+} from '../types'
 import { ContextManager } from './context-manager'
 import { CookieHandler } from './cookie-handler'
 import { Logger } from '../types'
@@ -58,16 +63,21 @@ export class EventTracker {
       const payload = event.payload as EcommercePayload
       const eventType = payload.type
 
-      this.logger.debug('Tracking ecommerce event', { userId, eventType, payload })
+      this.logger.debug('Tracking ecommerce event', {
+        userId,
+        eventType,
+        payload,
+      })
 
       // Get or create context
       const context = await this.contextManager.getOrCreateContext(userId)
 
       // Map ecommerce events to ABsmartly goals
       const goalName = `ecommerce_${eventType}`
-      const properties: Record<string, any> = {
-        event_type: eventType,
-      }
+      const properties: Record<string, string | number | boolean | unknown[]> =
+        {
+          event_type: eventType,
+        }
 
       if (payload.revenue !== undefined) {
         properties.revenue = payload.revenue
@@ -91,7 +101,10 @@ export class EventTracker {
 
       // Also track purchase value if it's a purchase event
       if (eventType === 'purchase' && payload.revenue) {
-        context.track('revenue', { value: payload.revenue, currency: payload.currency || 'USD' })
+        context.track('revenue', {
+          value: payload.revenue,
+          currency: payload.currency || 'USD',
+        })
       }
 
       // Publish immediately
@@ -139,14 +152,22 @@ export class EventTracker {
     }
   }
 
-  async trackCustom(event: MCEvent, eventName: string, properties: Record<string, any>): Promise<void> {
+  async trackCustom(
+    event: MCEvent,
+    eventName: string,
+    properties: Record<string, string | number | boolean | null | undefined>
+  ): Promise<void> {
     try {
       const userId = this.cookieHandler.getUserId(event.client)
       if (!userId) {
         return
       }
 
-      this.logger.debug('Tracking custom event', { userId, eventName, properties })
+      this.logger.debug('Tracking custom event', {
+        userId,
+        eventName,
+        properties,
+      })
 
       const context = await this.contextManager.getOrCreateContext(userId)
       context.track(eventName, properties)

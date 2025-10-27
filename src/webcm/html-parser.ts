@@ -34,7 +34,10 @@ export class HTMLParser {
         return this.replaceInnerHTML(html, selector, change.value)
 
       case 'attribute':
-        return this.setAttribute(html, selector, change.name!, change.value)
+        if (!change.name) {
+          throw new Error('attribute change requires name property')
+        }
+        return this.setAttribute(html, selector, change.name, change.value)
 
       case 'class':
         if (change.action === 'add') {
@@ -50,7 +53,10 @@ export class HTMLParser {
         return this.deleteElement(html, selector)
 
       case 'styleRules':
-        return this.addStyleRules(html, change.rules!)
+        if (!change.rules) {
+          throw new Error('styleRules change requires rules property')
+        }
+        return this.addStyleRules(html, change.rules)
 
       case 'create':
         return this.createElement(html, change)
@@ -59,30 +65,49 @@ export class HTMLParser {
         return this.moveElement(html, change)
 
       default:
-        console.warn('[ABSmartly MC] Unsupported server-side change type:', type)
+        console.warn(
+          '[ABSmartly MC] Unsupported server-side change type:',
+          type
+        )
         return html
     }
   }
 
-  private replaceTextContent(html: string, selector: string, newText: string): string {
+  private replaceTextContent(
+    html: string,
+    selector: string,
+    newText: string
+  ): string {
     // Simple implementation - replace text between opening and closing tags
     const tag = this.extractTagFromSelector(selector)
     const pattern = new RegExp(`(<${tag}[^>]*>)([^<]*)(</${tag}>)`, 'gi')
     return html.replace(pattern, `$1${newText}$3`)
   }
 
-  private replaceInnerHTML(html: string, selector: string, newHTML: string): string {
+  private replaceInnerHTML(
+    html: string,
+    selector: string,
+    newHTML: string
+  ): string {
     const tag = this.extractTagFromSelector(selector)
     const pattern = new RegExp(`(<${tag}[^>]*>)(.*?)(</${tag}>)`, 'gis')
     return html.replace(pattern, `$1${newHTML}$3`)
   }
 
-  private setAttribute(html: string, selector: string, attrName: string, attrValue: any): string {
+  private setAttribute(
+    html: string,
+    selector: string,
+    attrName: string,
+    attrValue: string | number | boolean | Record<string, unknown> | undefined
+  ): string {
     const tag = this.extractTagFromSelector(selector)
 
     if (attrValue === null || attrValue === undefined) {
       // Remove attribute
-      const pattern = new RegExp(`(<${tag}[^>]*?)\\s${attrName}="[^"]*"([^>]*>)`, 'gi')
+      const pattern = new RegExp(
+        `(<${tag}[^>]*?)\\s${attrName}="[^"]*"([^>]*>)`,
+        'gi'
+      )
       return html.replace(pattern, '$1$2')
     } else {
       // Add or update attribute
@@ -117,7 +142,11 @@ export class HTMLParser {
     })
   }
 
-  private removeClass(html: string, selector: string, className: string): string {
+  private removeClass(
+    html: string,
+    selector: string,
+    className: string
+  ): string {
     const tag = this.extractTagFromSelector(selector)
     const pattern = new RegExp(`<${tag}([^>]*)>`, 'gi')
 
@@ -127,11 +156,16 @@ export class HTMLParser {
     })
   }
 
-  private addInlineStyle(html: string, selector: string, styles: any): string {
+  private addInlineStyle(
+    html: string,
+    selector: string,
+    styles: string | Record<string, string>
+  ): string {
     const tag = this.extractTagFromSelector(selector)
     const pattern = new RegExp(`<${tag}([^>]*)>`, 'gi')
 
-    const styleString = typeof styles === 'string' ? styles : this.objectToStyleString(styles)
+    const styleString =
+      typeof styles === 'string' ? styles : this.objectToStyleString(styles)
 
     return html.replace(pattern, (match, attrs) => {
       if (attrs.includes('style=')) {
@@ -210,7 +244,10 @@ export class HTMLParser {
     const sourceMatch = sourcePattern.exec(html)
 
     if (!sourceMatch) {
-      console.warn('[ABSmartly MC] Source element not found for move:', selector)
+      console.warn(
+        '[ABSmartly MC] Source element not found for move:',
+        selector
+      )
       return html
     }
 
@@ -237,7 +274,7 @@ export class HTMLParser {
     })
   }
 
-  private buildSelectorPattern(selector: string, withCapture: boolean = false): RegExp {
+  private buildSelectorPattern(selector: string, withCapture = false): RegExp {
     const tag = this.extractTagFromSelector(selector)
 
     // Check for ID selector (e.g., "div#myId" or "#myId")
@@ -247,7 +284,10 @@ export class HTMLParser {
       const id = idMatch[1]
       if (withCapture) {
         // Capture opening tag, content, and closing tag separately
-        return new RegExp(`(<${tag}[^>]*id="${id}"[^>]*>)(.*?)(</${tag}>)`, 'is')
+        return new RegExp(
+          `(<${tag}[^>]*id="${id}"[^>]*>)(.*?)(</${tag}>)`,
+          'is'
+        )
       } else {
         // Capture entire element
         return new RegExp(`<${tag}[^>]*id="${id}"[^>]*>.*?</${tag}>`, 'is')
@@ -260,9 +300,15 @@ export class HTMLParser {
     if (classMatch) {
       const className = classMatch[1]
       if (withCapture) {
-        return new RegExp(`(<${tag}[^>]*class="[^"]*${className}[^"]*"[^>]*>)(.*?)(</${tag}>)`, 'is')
+        return new RegExp(
+          `(<${tag}[^>]*class="[^"]*${className}[^"]*"[^>]*>)(.*?)(</${tag}>)`,
+          'is'
+        )
       } else {
-        return new RegExp(`<${tag}[^>]*class="[^"]*${className}[^"]*"[^>]*>.*?</${tag}>`, 'is')
+        return new RegExp(
+          `<${tag}[^>]*class="[^"]*${className}[^"]*"[^>]*>.*?</${tag}>`,
+          'is'
+        )
       }
     }
 

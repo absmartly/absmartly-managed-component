@@ -185,7 +185,6 @@ describe('ClientInjector', () => {
     it('should include correct settings in debug info', () => {
       settings.ENABLE_DEBUG = true
       settings.DEPLOYMENT_MODE = 'zaraz'
-      settings.ENABLE_SPA_MODE = true
       settings.ENABLE_WEB_VITALS = true
       const injector = new ClientInjector(settings, logger)
 
@@ -193,7 +192,6 @@ describe('ClientInjector', () => {
 
       const callArg = (mockClient.execute as any).mock.calls[0][0]
       expect(callArg).toContain("deployment: 'zaraz'")
-      expect(callArg).toContain('spaMode: true')
       expect(callArg).toContain('webVitals: true')
     })
 

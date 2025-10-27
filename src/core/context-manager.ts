@@ -1,11 +1,19 @@
-import SDK from '@absmartly/javascript-sdk'
+import { SDK } from '@absmartly/javascript-sdk'
 import { Manager } from '@managed-components/types'
-import { ABSmartlySettings, ContextAttributes, OverridesMap, ExperimentData } from '../types'
+import {
+  ABSmartlySettings,
+  ContextAttributes,
+  OverridesMap,
+  ExperimentData,
+  ABSmartlyContext,
+  ABSmartlyExperiment,
+  DOMChange,
+  Logger,
+} from '../types'
 import { generateSessionId } from '../utils/serializer'
-import { Logger } from '../types'
 
 export class ContextManager {
-  private sdk: SDK
+  private sdk: typeof SDK.prototype
 
   constructor(
     private manager: Manager,
@@ -15,7 +23,7 @@ export class ContextManager {
     this.sdk = this.initializeSDK()
   }
 
-  private initializeSDK(): SDK {
+  private initializeSDK(): typeof SDK.prototype {
     this.logger.debug('Initializing ABsmartly SDK', {
       endpoint: this.settings.ABSMARTLY_ENDPOINT,
       environment: this.settings.ABSMARTLY_ENVIRONMENT,
@@ -38,8 +46,12 @@ export class ContextManager {
     userId: string,
     overrides: OverridesMap,
     attributes: ContextAttributes
-  ): Promise<any> {
-    this.logger.debug('Creating ABsmartly context', { userId, overrides, attributes })
+  ): Promise<ABSmartlyContext> {
+    this.logger.debug('Creating ABsmartly context', {
+      userId,
+      overrides,
+      attributes,
+    })
 
     const context = this.sdk.createContext({
       units: {
@@ -65,7 +77,10 @@ export class ContextManager {
       await Promise.race([
         context.ready(),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Context timeout')), this.settings.SDK_TIMEOUT || 2000)
+          setTimeout(
+            () => reject(new Error('Context timeout')),
+            this.settings.SDK_TIMEOUT || 2000
+          )
         ),
       ])
 
@@ -78,7 +93,10 @@ export class ContextManager {
     return context
   }
 
-  extractExperimentData(context: any, trackImmediate: boolean = true): ExperimentData[] {
+  extractExperimentData(
+    context: ABSmartlyContext,
+    trackImmediate = true
+  ): ExperimentData[] {
     const experiments: ExperimentData[] = []
 
     try {
@@ -98,10 +116,15 @@ export class ContextManager {
             continue // User not eligible for this experiment
           }
 
-          const variant = experiment.variants ? experiment.variants[treatment] : null
+          const variant = experiment.variants
+            ? experiment.variants[treatment]
+            : null
 
           if (!variant) {
-            this.logger.warn('No variant found for treatment', { experiment: experiment.name, treatment })
+            this.logger.warn('No variant found for treatment', {
+              experiment: experiment.name,
+              treatment,
+            })
             continue
           }
 
@@ -109,12 +132,17 @@ export class ContextManager {
 
           // Check if this experiment needs immediate exposure tracking
           // Cross-variant logic: Check ALL variants, not just current variant
-          const needsImmediateTracking = this.shouldTrackImmediately(experiment, changes)
+          const needsImmediateTracking = this.shouldTrackImmediately(
+            experiment,
+            changes
+          )
 
           if (trackImmediate && needsImmediateTracking) {
             // Track exposure immediately (this is the correct SDK call!)
             context.treatment(experiment.name)
-            this.logger.debug('Tracked immediate exposure', { experiment: experiment.name })
+            this.logger.debug('Tracked immediate exposure', {
+              experiment: experiment.name,
+            })
           }
 
           experiments.push({
@@ -132,7 +160,10 @@ export class ContextManager {
             immediateTracking: needsImmediateTracking,
           })
         } catch (error) {
-          this.logger.error('Failed to extract experiment', { experiment: experiment.name, error })
+          this.logger.error('Failed to extract experiment', {
+            experiment: experiment.name,
+            error,
+          })
         }
       }
     } catch (error) {
@@ -142,7 +173,10 @@ export class ContextManager {
     return experiments
   }
 
-  private shouldTrackImmediately(experiment: any, currentVariantChanges: any[]): boolean {
+  private shouldTrackImmediately(
+    experiment: ABSmartlyExperiment,
+    _currentVariantChanges: DOMChange[]
+  ): boolean {
     // Check if ANY variant has immediate triggers (cross-variant tracking)
     // This prevents Sample Ratio Mismatch (SRM)
 
@@ -155,8 +189,10 @@ export class ContextManager {
       const changes = variant.config?.domChanges || []
 
       // If any change has trigger_on_view explicitly false, or undefined (default immediate)
-      const hasImmediateTrigger = changes.some((change: any) =>
-        change.trigger_on_view === false || change.trigger_on_view === undefined
+      const hasImmediateTrigger = changes.some(
+        (change: DOMChange) =>
+          change.trigger_on_view === false ||
+          change.trigger_on_view === undefined
       )
 
       if (hasImmediateTrigger) {
@@ -172,7 +208,7 @@ export class ContextManager {
     userId: string,
     overrides: OverridesMap = {},
     attributes: ContextAttributes = {}
-  ): Promise<any> {
+  ): Promise<ABSmartlyContext> {
     // Try to get cached context
     const cacheKey = `context_${userId}`
     const cached = await this.manager.get(cacheKey)
@@ -181,9 +217,21 @@ export class ContextManager {
       this.logger.debug('Using cached context', { userId })
       try {
         // Recreate context from cached data
-        return this.sdk.createContextWith(cached)
+        // createContextWith requires: params, data, options
+        return this.sdk.createContextWith(
+          {
+            units: {
+              user_id: userId,
+              session_id: generateSessionId(userId),
+            },
+          },
+          cached
+        )
       } catch (error) {
-        this.logger.warn('Failed to recreate context from cache, creating new', error)
+        this.logger.warn(
+          'Failed to recreate context from cache, creating new',
+          error
+        )
       }
     }
 
@@ -193,11 +241,12 @@ export class ContextManager {
     // Cache context data
     try {
       const contextData = context.getContextData()
-      await this.manager.set(cacheKey, contextData, {
-        scope: 'infinite',
-        expiry: this.settings.CONTEXT_CACHE_TTL || 60,
+      // manager.set only takes key and value (no options)
+      await this.manager.set(cacheKey, contextData)
+      this.logger.debug('Cached context', {
+        userId,
+        ttl: this.settings.CONTEXT_CACHE_TTL,
       })
-      this.logger.debug('Cached context', { userId, ttl: this.settings.CONTEXT_CACHE_TTL })
     } catch (error) {
       this.logger.error('Failed to cache context:', error)
     }
@@ -205,7 +254,7 @@ export class ContextManager {
     return context
   }
 
-  async publishContext(context: any): Promise<void> {
+  async publishContext(context: ABSmartlyContext): Promise<void> {
     try {
       await context.publish()
       this.logger.debug('Published context (exposures and events)')

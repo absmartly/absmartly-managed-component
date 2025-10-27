@@ -58,16 +58,15 @@ export class OverridesHandler {
 
     // Store back in cookie
     event.client.set('absmartly_overrides', JSON.stringify(existing), {
+      scope: 'page',
       expiry: 7 * 86400, // 7 days
-      path: '/',
-      sameSite: 'Lax',
     })
   }
 
   clearOverrides(event: MCEvent): void {
     event.client.set('absmartly_overrides', '', {
+      scope: 'page',
       expiry: 0,
-      path: '/',
     })
   }
 

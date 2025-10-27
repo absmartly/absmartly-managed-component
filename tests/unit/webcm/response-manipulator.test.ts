@@ -1,12 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ResponseManipulator } from '../../../src/webcm/response-manipulator'
 import { ABSmartlySettings, Logger, ExperimentData } from '../../../src/types'
-import { FetchedRequest } from '@managed-components/types'
+
+// FetchedRequest is not exported from @managed-components/types, define locally
+interface FetchedRequest extends Response {
+  url: string
+}
 
 describe('ResponseManipulator', () => {
   let settings: ABSmartlySettings
   let logger: Logger
   let mockRequest: Partial<FetchedRequest>
+
+  const createMockRequest = (contentType: string = 'text/html'): Partial<FetchedRequest> => {
+    const headers = new Map<string, string>()
+    headers.set('content-type', contentType)
+
+    return {
+      url: 'https://example.com',
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        get: (name: string) => headers.get(name),
+      } as any,
+      text: vi.fn().mockResolvedValue('<html><head></head><body>Hello</body></html>'),
+    }
+  }
 
   beforeEach(() => {
     settings = {
@@ -26,18 +45,7 @@ describe('ResponseManipulator', () => {
       debug: vi.fn(),
     }
 
-    const headers = new Map<string, string>()
-    headers.set('content-type', 'text/html')
-
-    mockRequest = {
-      url: 'https://example.com',
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        get: (name: string) => headers.get(name),
-      } as any,
-      text: vi.fn().mockResolvedValue('<html><head></head><body><h1>Test</h1></body></html>'),
-    }
+    mockRequest = createMockRequest()
   })
 
   describe('manipulateResponse', () => {
@@ -112,12 +120,7 @@ describe('ResponseManipulator', () => {
     })
 
     it('should skip non-HTML responses', async () => {
-      const headers = new Map<string, string>()
-      headers.set('content-type', 'application/json')
-
-      mockRequest.headers = {
-        get: (name: string) => headers.get(name),
-      } as any
+      mockRequest = createMockRequest('application/json')
 
       const experimentData: ExperimentData[] = []
       const manipulator = new ResponseManipulator(settings, logger)
@@ -149,7 +152,8 @@ describe('ResponseManipulator', () => {
       )
 
       const modifiedHtml = await result.text()
-      expect(modifiedHtml).toContain('<h1>Test</h1>')
+      expect(modifiedHtml).toContain('Hello')
+      expect(modifiedHtml).toContain('id="absmartly-data"') // Experiment data should still be injected
     })
 
     it('should handle multiple experiments', async () => {

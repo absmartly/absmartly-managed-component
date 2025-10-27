@@ -8,17 +8,22 @@ describe('OverridesHandler', () => {
   let mockClient: Partial<Client>
   let cookieStorage: Map<string, string>
 
+  const createMockClient = (urlString: string = 'https://example.com'): Partial<Client> => {
+    return {
+      url: new URL(urlString),
+      get: vi.fn((key: string) => cookieStorage.get(key)),
+      set: vi.fn((key: string, value: string, options?: any): boolean => {
+        cookieStorage.set(key, value)
+        return true
+      }),
+    }
+  }
+
   beforeEach(() => {
     handler = new OverridesHandler()
     cookieStorage = new Map()
 
-    mockClient = {
-      url: 'https://example.com',
-      get: vi.fn((key: string) => cookieStorage.get(key)),
-      set: vi.fn((key: string, value: string, options?: any) => {
-        cookieStorage.set(key, value)
-      }),
-    }
+    mockClient = createMockClient()
 
     mockEvent = {
       client: mockClient as Client,
@@ -33,7 +38,8 @@ describe('OverridesHandler', () => {
     })
 
     it('should get URL overrides', () => {
-      mockClient.url = 'https://example.com?absmartly_experiment1=2&absmartly_experiment2=1'
+      mockClient = createMockClient('https://example.com?absmartly_experiment1=2&absmartly_experiment2=1')
+      mockEvent.client = mockClient as Client
 
       const overrides = handler.getOverrides(mockEvent as MCEvent)
 
@@ -58,7 +64,7 @@ describe('OverridesHandler', () => {
     })
 
     it('should merge URL and cookie overrides with cookie taking precedence', () => {
-      mockClient.url = 'https://example.com?absmartly_experiment1=2'
+      mockClient = createMockClient('https://example.com?absmartly_experiment1=2')
       cookieStorage.set(
         'absmartly_overrides',
         JSON.stringify({ experiment1: 0, experiment2: 1 })
@@ -75,7 +81,8 @@ describe('OverridesHandler', () => {
 
   describe('getURLOverrides', () => {
     it('should extract overrides from URL with absmartly_ prefix', () => {
-      mockClient.url = 'https://example.com?absmartly_exp1=1&absmartly_exp2=2'
+      mockClient = createMockClient('https://example.com?absmartly_exp1=1&absmartly_exp2=2')
+      mockEvent.client = mockClient as Client
 
       const overrides = (handler as any).getURLOverrides(mockEvent)
 
@@ -86,7 +93,8 @@ describe('OverridesHandler', () => {
     })
 
     it('should ignore non-absmartly parameters', () => {
-      mockClient.url = 'https://example.com?absmartly_exp1=1&other_param=value&foo=bar'
+      mockClient = createMockClient('https://example.com?absmartly_exp1=1&other_param=value&foo=bar')
+      mockEvent.client = mockClient as Client
 
       const overrides = (handler as any).getURLOverrides(mockEvent)
 
@@ -96,7 +104,7 @@ describe('OverridesHandler', () => {
     })
 
     it('should handle URL without query parameters', () => {
-      mockClient.url = 'https://example.com'
+      mockClient = createMockClient('https://example.com')
 
       const overrides = (handler as any).getURLOverrides(mockEvent)
 
@@ -104,7 +112,8 @@ describe('OverridesHandler', () => {
     })
 
     it('should parse variant values as integers', () => {
-      mockClient.url = 'https://example.com?absmartly_exp1=0&absmartly_exp2=3'
+      mockClient = createMockClient('https://example.com?absmartly_exp1=0&absmartly_exp2=3')
+      mockEvent.client = mockClient as Client
 
       const overrides = (handler as any).getURLOverrides(mockEvent)
 
@@ -115,7 +124,13 @@ describe('OverridesHandler', () => {
     })
 
     it('should handle invalid URL gracefully', () => {
-      mockClient.url = 'not-a-valid-url'
+      // Create mock with a valid URL but set it to throw when accessed
+      mockClient = {
+        url: { toString: () => 'not-a-valid-url' } as any,
+        get: vi.fn((key: string) => cookieStorage.get(key)),
+        set: vi.fn(() => true),
+      }
+      mockEvent.client = mockClient as Client
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const overrides = (handler as any).getURLOverrides(mockEvent)
@@ -127,7 +142,8 @@ describe('OverridesHandler', () => {
     })
 
     it('should handle experiment names with underscores', () => {
-      mockClient.url = 'https://example.com?absmartly_my_experiment_name=2'
+      mockClient = createMockClient('https://example.com?absmartly_my_experiment_name=2')
+      mockEvent.client = mockClient as Client
 
       const overrides = (handler as any).getURLOverrides(mockEvent)
 
@@ -189,9 +205,8 @@ describe('OverridesHandler', () => {
         'absmartly_overrides',
         JSON.stringify({ exp1: 2 }),
         {
+          scope: 'page',
           expiry: 7 * 86400,
-          path: '/',
-          sameSite: 'Lax',
         }
       )
     })
@@ -247,8 +262,8 @@ describe('OverridesHandler', () => {
         'absmartly_overrides',
         '',
         {
+          scope: 'page',
           expiry: 0,
-          path: '/',
         }
       )
     })

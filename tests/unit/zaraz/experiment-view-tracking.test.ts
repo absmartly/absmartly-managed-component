@@ -92,6 +92,7 @@ describe('ExperimentView Tracking', () => {
     return: vi.fn(),
     fetch: vi.fn(),
     attachEvent: vi.fn(),
+    detachEvent: vi.fn(),
   })
 
   beforeEach(() => {
@@ -220,9 +221,9 @@ describe('ExperimentView Tracking', () => {
       // Verify getOrCreateContext was called with the user ID
       expect(mockContextManager.getOrCreateContext).toHaveBeenCalledWith(
         'test-user-123',
-        expect.any(Object),
+        {},
         expect.objectContaining({
-          url: mockEvent.client.url,
+          url: expect.any(String),
           userAgent: mockEvent.client.userAgent,
           ip: mockEvent.client.ip,
         })

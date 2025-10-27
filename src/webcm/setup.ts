@@ -1,14 +1,26 @@
-import { Manager, MCEvent, FetchedRequest } from '@managed-components/types'
+import { Manager, MCEvent } from '@managed-components/types'
 import { ABSmartlySettings } from '../types'
 import { ContextManager } from '../core/context-manager'
 import { CookieHandler } from '../core/cookie-handler'
 import { OverridesHandler } from '../core/overrides-handler'
 import { EventTracker } from '../core/event-tracker'
+import { ExperimentViewHandler } from '../core/experiment-view-handler'
+import { RequestHandler } from '../core/request-handler'
+import { EventHandlers } from '../core/event-handlers'
 import { ResponseManipulator } from './response-manipulator'
+import { WebCMClientInjector } from './client-injector'
+import { ABSmartlyEndpointHandler } from './absmartly-endpoint-handler'
 import { createLogger } from '../utils/logger'
-import { Logger } from '../types'
 
-export function setupWebCMMode(manager: Manager, settings: ABSmartlySettings): void {
+// FetchedRequest is a WebCM-specific type not exported from @managed-components/types
+interface FetchedRequest extends Response {
+  url: string
+}
+
+export function setupWebCMMode(
+  manager: Manager,
+  settings: ABSmartlySettings
+): void {
   const logger = createLogger(settings.ENABLE_DEBUG || false)
   logger.log('Initializing ABsmartly Managed Component - WebCM mode')
 
@@ -16,104 +28,94 @@ export function setupWebCMMode(manager: Manager, settings: ABSmartlySettings): v
   const contextManager = new ContextManager(manager, settings, logger)
   const cookieHandler = new CookieHandler(settings)
   const overridesHandler = new OverridesHandler()
-  const eventTracker = new EventTracker(manager, contextManager, cookieHandler, settings, logger)
+  const eventTracker = new EventTracker(
+    manager,
+    contextManager,
+    cookieHandler,
+    settings,
+    logger
+  )
   const responseManipulator = new ResponseManipulator(settings, logger)
+  const clientInjector = new WebCMClientInjector(settings, logger)
+  const endpointHandler = new ABSmartlyEndpointHandler(settings, eventTracker, logger)
+  const experimentViewHandler = new ExperimentViewHandler(
+    contextManager,
+    cookieHandler,
+    overridesHandler,
+    logger
+  )
+  const requestHandler = new RequestHandler({
+    contextManager,
+    cookieHandler,
+    overridesHandler,
+    settings,
+    logger,
+  })
+  const eventHandlers = new EventHandlers({
+    eventTracker,
+    experimentViewHandler,
+    logger,
+  })
 
-  // Intercept requests to manipulate responses
+  // Intercept requests to handle /absmartly endpoint and manipulate responses
   manager.addEventListener('request', async (event: MCEvent) => {
+    // Handle /absmartly endpoint for track requests
+    const isEndpointHandled = await endpointHandler.handleRequest(event)
+    if (isEndpointHandled) {
+      return
+    }
+
+    // Check if URL should be manipulated
+    if (!responseManipulator.shouldManipulate(event.client.url.toString())) {
+      return
+    }
+
+    const result = await requestHandler.handleRequest(event)
+
+    if (!result) {
+      await requestHandler.handleRequestError(event)
+      return
+    }
+
+    if (!result.shouldProcess) {
+      return
+    }
+
     try {
-      logger.debug('Request intercepted', { url: event.client.url })
+      // Manipulate response HTML with experiment changes
+      let modifiedHTML = (await result.fetchResult.text()) as string
 
-      // Check if URL should be manipulated
-      if (!responseManipulator.shouldManipulate(event.client.url)) {
-        return
-      }
-
-      // 1. Get or create user ID
-      const userId = cookieHandler.getUserId(event.client)
-      logger.debug('User ID', { userId })
-
-      // 2. Store UTM params and landing page (first visit)
-      cookieHandler.storeUTMParams(event.client)
-      cookieHandler.storeLandingPage(event.client)
-
-      // 3. Check for overrides (QA mode)
-      const overrides = overridesHandler.getOverrides(event)
-      if (overridesHandler.hasOverrides(overrides)) {
-        logger.debug('Overrides detected', { overrides })
-      }
-
-      // 4. Create context on edge
-      const context = await contextManager.createContext(userId, overrides, {
-        url: event.client.url,
-        userAgent: event.client.userAgent,
-        ip: event.client.ip,
-      })
-
-      // 5. Extract experiment data and treatments
-      const experimentData = contextManager.extractExperimentData(context)
-      logger.debug('Experiments extracted', {
-        count: experimentData.length,
-        experiments: experimentData.map((e) => ({ name: e.name, treatment: e.treatment })),
-      })
-
-      // 6. Fetch the original response
-      const request = await event.client.fetch(event.client.url)
-
-      // 7. Manipulate response HTML with experiment changes
+      // Process HTML with Treatment tags and DOM changes
       const modifiedRequest = await responseManipulator.manipulateResponse(
-        request as FetchedRequest,
-        experimentData
+        result.fetchResult as unknown as FetchedRequest,
+        result.experimentData
       )
 
-      // 8. Track exposures immediately (context is short-lived on edge)
-      await contextManager.publishContext(context)
-      logger.debug('Exposures published')
+      // Get the modified HTML
+      const modifiedHTMLText = await modifiedRequest.text()
 
-      // 9. Return modified response
-      event.client.return(modifiedRequest)
+      // Inject client bundle (anti-flicker + trigger-on-view + init)
+      const finalHTML = clientInjector.injectClientBundle(modifiedHTMLText)
+
+      // Create final response
+      const finalResponse = new Response(finalHTML, {
+        status: modifiedRequest.status,
+        statusText: modifiedRequest.statusText,
+        headers: modifiedRequest.headers
+      })
+
+      // Return final response
+      event.client.return(finalResponse)
     } catch (error) {
-      logger.error('Request handler error:', error)
-
-      // Graceful degradation - return original response
-      try {
-        const originalRequest = await event.client.fetch(event.client.url)
-        event.client.return(originalRequest)
-      } catch (fetchError) {
-        logger.error('Failed to fetch original request:', fetchError)
-      }
+      logger.error('Response manipulation error:', error)
+      await requestHandler.handleRequestError(event)
     }
   })
 
-  // Handle custom events (goals)
-  manager.addEventListener('track', async (event: MCEvent) => {
-    try {
-      logger.debug('Track event received', { name: event.payload?.name })
-      await eventTracker.trackGoal(event)
-    } catch (error) {
-      logger.error('Track event error:', error)
-    }
-  })
+  // Set up event handlers (track, event, ecommerce)
+  eventHandlers.setupEventListeners(manager)
 
-  // Handle generic events
-  manager.addEventListener('event', async (event: MCEvent) => {
-    try {
-      logger.debug('Event received', { type: event.type })
-      await eventTracker.trackEvent(event)
-    } catch (error) {
-      logger.error('Event error:', error)
-    }
-  })
-
-  // Handle ecommerce events
-  manager.addEventListener('ecommerce', async (event: MCEvent) => {
-    try {
-      logger.debug('Ecommerce event received', { type: event.payload?.type })
-      await eventTracker.trackEcommerce(event)
-    } catch (error) {
-      logger.error('Ecommerce event error:', error)
-    }
-  })
-
-  logger.log('ABsmartly Managed Component - WebCM mode initialized successfully')
+  logger.log(
+    'ABsmartly Managed Component - WebCM mode initialized successfully'
+  )
 }

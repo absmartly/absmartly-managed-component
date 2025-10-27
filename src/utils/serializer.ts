@@ -1,4 +1,4 @@
-import { ContextData, ExperimentData } from '../types'
+import { ContextData } from '../types'
 
 export function serializeContextData(data: ContextData): string {
   try {
@@ -25,7 +25,7 @@ export function generateSessionId(userId: string): string {
 }
 
 export function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0
     const v = c === 'x' ? r : (r & 0x3) | 0x8
     return v.toString(16)
@@ -42,9 +42,12 @@ export function hashString(str: string): string {
   return Math.abs(hash).toString(36)
 }
 
-export function safeParseJSON(json: string, fallback: any = null): any {
+export function safeParseJSON<T = unknown>(
+  json: string,
+  fallback: T | null = null
+): T | null {
   try {
-    return JSON.parse(json)
+    return JSON.parse(json) as T
   } catch {
     return fallback
   }

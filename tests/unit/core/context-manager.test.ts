@@ -3,15 +3,16 @@ import { ContextManager } from '../../../src/core/context-manager'
 import { ABSmartlySettings, Logger } from '../../../src/types'
 import { Manager } from '@managed-components/types'
 
-// Mock the ABsmartly SDK
+// Create mock instances that will be shared
 const mockSDKInstance = {
   createContext: vi.fn(),
   createContextWith: vi.fn(),
 }
 
+// Mock the ABsmartly SDK
 vi.mock('@absmartly/javascript-sdk', () => {
   return {
-    default: vi.fn(() => mockSDKInstance),
+    SDK: vi.fn().mockImplementation(() => mockSDKInstance),
   }
 })
 
@@ -27,8 +28,9 @@ describe('ContextManager', () => {
 
     manager = {
       get: vi.fn(async (key: string) => storage.get(key)),
-      set: vi.fn(async (key: string, value: any) => {
+      set: vi.fn(async (key: string, value: any): Promise<boolean> => {
         storage.set(key, value)
+        return true
       }),
     }
 
@@ -293,11 +295,7 @@ describe('ContextManager', () => {
 
       expect(manager.set).toHaveBeenCalledWith(
         'context_user123',
-        { data: 'cached' },
-        {
-          scope: 'infinite',
-          expiry: 60,
-        }
+        { data: 'cached' }
       )
     })
 
@@ -307,7 +305,15 @@ describe('ContextManager', () => {
 
       const context = await contextManager.getOrCreateContext('user123')
 
-      expect(mockSDKInstance.createContextWith).toHaveBeenCalledWith({ data: 'cached' })
+      expect(mockSDKInstance.createContextWith).toHaveBeenCalledWith(
+        {
+          units: {
+            user_id: 'user123',
+            session_id: expect.stringContaining('user123_'),
+          },
+        },
+        { data: 'cached' }
+      )
       expect(mockSDKInstance.createContext).not.toHaveBeenCalled()
     })
 

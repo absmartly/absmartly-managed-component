@@ -1,5 +1,5 @@
-import { Manager, MCEvent } from '@managed-components/types'
-import { ABSmartlySettings } from '../types'
+import { Manager, Client } from '@managed-components/types'
+import { ABSmartlySettings, ABSmartlyExperiment } from '../types'
 import { ContextManager } from '../core/context-manager'
 import { CookieHandler } from '../core/cookie-handler'
 import { Logger } from '../types'
@@ -21,18 +21,24 @@ export class EmbedHandler {
 
     this.logger.debug('Setting up ABsmartly embeds')
 
-    // Register embed for experiment placeholders
-    this.manager.registerEmbed('experiment', async ({ client, payload }) => {
-      return await this.handleExperimentEmbed(client, payload)
+    // Register embed for {{experiment ...}} placeholders (Zaraz standard format)
+    this.manager.registerEmbed('experiment', async ({ client, parameters }) => {
+      return await this.handleExperimentEmbed(client, parameters)
     })
+
+    // Note: Treatment/TreatmentVariant HTML tags are handled via request interception
+    // in setup.ts, not through the embed system
 
     this.logger.debug('Embeds registered successfully')
   }
 
-  private async handleExperimentEmbed(client: any, payload: any): Promise<string> {
+  private async handleExperimentEmbed(
+    client: Client,
+    parameters: { [k: string]: unknown }
+  ): Promise<string> {
     try {
-      const experimentName = payload.get('exp-name')
-      const defaultContent = payload.get('default') || ''
+      const experimentName = parameters['exp-name'] as string
+      const defaultContent = (parameters['default'] as string) || ''
 
       if (!experimentName) {
         this.logger.warn('No experiment name provided for embed')
@@ -52,20 +58,26 @@ export class EmbedHandler {
 
       if (treatment === undefined || treatment < 0) {
         // User not eligible or experiment not running
-        this.logger.debug('User not eligible for experiment', { experimentName })
+        this.logger.debug('User not eligible for experiment', {
+          experimentName,
+        })
         return defaultContent
       }
 
       // Get experiment data
       const contextData = context.getData()
-      const experiment = contextData.experiments?.find((exp: any) => exp.name === experimentName)
+      const experiment = contextData.experiments?.find(
+        (exp: ABSmartlyExperiment) => exp.name === experimentName
+      )
 
       if (!experiment) {
         this.logger.warn('Experiment not found in context', { experimentName })
         return defaultContent
       }
 
-      const variant = experiment.variants ? experiment.variants[treatment] : null
+      const variant = experiment.variants
+        ? experiment.variants[treatment]
+        : null
 
       if (!variant) {
         this.logger.warn('Variant not found', { experimentName, treatment })
@@ -73,7 +85,8 @@ export class EmbedHandler {
       }
 
       // Return variant HTML
-      const html = variant.config?.html || variant.config?.content || defaultContent
+      const html =
+        variant.config?.html || variant.config?.content || defaultContent
 
       this.logger.debug('Returning variant HTML for embed', {
         experimentName,
@@ -84,7 +97,7 @@ export class EmbedHandler {
       return html
     } catch (error) {
       this.logger.error('Failed to handle experiment embed:', error)
-      return payload.get('default') || ''
+      return ''
     }
   }
 }
