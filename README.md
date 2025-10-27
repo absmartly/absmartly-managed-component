@@ -487,20 +487,6 @@ Track exposure only when content enters the viewport:
 </div>
 ```
 
-
-### Legacy Embeds (Zaraz)
-
-For backwards compatibility, the old embed format is still supported:
-
-```html
-<div data-component-embed="absmartly-experiment"
-     data-exp-name="hero_test"
-     data-default="<h1>Welcome</h1>">
-</div>
-```
-
-**Note**: Treatment tags are recommended for new implementations.
-
 ### Testing Experiments (QA Mode)
 
 #### URL Override
