@@ -51,7 +51,7 @@ vi.mock('../../../src/core/event-tracker', () => ({
 vi.mock('../../../src/zaraz/client-injector', () => ({
   ClientInjector: vi.fn().mockImplementation(() => ({
     injectDebugInfo: vi.fn(),
-    injectExperimentCode: vi.fn(),
+    injectClientCode: vi.fn(),
     injectFailsafe: vi.fn(),
   })),
 }))

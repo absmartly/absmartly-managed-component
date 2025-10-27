@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ClientInjector } from '../../../src/zaraz/client-injector'
-import { ABSmartlySettings, Logger, ContextData } from '../../../src/types'
+import { ABSmartlySettings, Logger } from '../../../src/types'
 import { MCEvent, Client } from '@managed-components/types'
 
-// Mock the client bundle functions
-vi.mock('../../../src/zaraz/client-bundle/initializer', () => ({
+// Mock the shared client bundle generator
+vi.mock('../../../src/shared/client-bundle-generator', () => ({
   generateClientBundle: vi.fn().mockReturnValue('<script>/* client bundle */</script>'),
-  generateWebVitalsScript: vi.fn().mockReturnValue('<script>/* web vitals */</script>'),
 }))
 
 describe('ClientInjector', () => {
@@ -14,7 +13,6 @@ describe('ClientInjector', () => {
   let logger: Logger
   let mockEvent: Partial<MCEvent>
   let mockClient: Partial<Client>
-  let experimentData: ContextData
 
   beforeEach(() => {
     settings = {
@@ -24,7 +22,8 @@ describe('ClientInjector', () => {
       ABSMARTLY_ENVIRONMENT: 'production',
       ABSMARTLY_APPLICATION: 'test-app',
       ENABLE_DEBUG: false,
-      ENABLE_WEB_VITALS: false,
+      ENABLE_ANTI_FLICKER: true,
+      ENABLE_TRIGGER_ON_VIEW: true,
       HIDE_SELECTOR: 'body',
     } as ABSmartlySettings
 
@@ -43,52 +42,26 @@ describe('ClientInjector', () => {
       client: mockClient as Client,
     }
 
-    experimentData = {
-      experiments: [
-        {
-          name: 'experiment1',
-          treatment: 1,
-          variant: 'variant_a',
-          changes: [],
-        },
-      ],
-    }
-
     vi.clearAllMocks()
   })
 
-  describe('injectExperimentCode', () => {
+  describe('injectClientCode', () => {
     it('should inject client bundle', () => {
       const injector = new ClientInjector(settings, logger)
 
-      injector.injectExperimentCode(mockEvent as MCEvent, experimentData)
+      injector.injectClientCode(mockEvent as MCEvent)
 
       expect(mockClient.execute).toHaveBeenCalledWith('<script>/* client bundle */</script>')
-      expect(logger.debug).toHaveBeenCalledWith('Injecting client code', {
-        experimentsCount: 1,
-      })
+      expect(logger.debug).toHaveBeenCalledWith('Injecting client code for Zaraz mode')
       expect(logger.debug).toHaveBeenCalledWith('Client code injected successfully')
     })
 
-    it('should inject web vitals script if enabled', () => {
-      settings.ENABLE_WEB_VITALS = true
+    it('should pass Zaraz mode to bundle generator', () => {
       const injector = new ClientInjector(settings, logger)
 
-      injector.injectExperimentCode(mockEvent as MCEvent, experimentData)
+      injector.injectClientCode(mockEvent as MCEvent)
 
-      expect(mockClient.execute).toHaveBeenCalledWith('<script>/* client bundle */</script>')
-      expect(mockClient.execute).toHaveBeenCalledWith('<script>/* web vitals */</script>')
-      expect(logger.debug).toHaveBeenCalledWith('Web vitals script injected')
-    })
-
-    it('should not inject web vitals script if disabled', () => {
-      settings.ENABLE_WEB_VITALS = false
-      const injector = new ClientInjector(settings, logger)
-
-      injector.injectExperimentCode(mockEvent as MCEvent, experimentData)
-
-      expect(mockClient.execute).toHaveBeenCalledTimes(1)
-      expect(mockClient.execute).toHaveBeenCalledWith('<script>/* client bundle */</script>')
+      expect(mockClient.execute).toHaveBeenCalled()
     })
 
     it('should inject failsafe on error', () => {
@@ -97,23 +70,11 @@ describe('ClientInjector', () => {
       })
       const injector = new ClientInjector(settings, logger)
 
-      injector.injectExperimentCode(mockEvent as MCEvent, experimentData)
+      injector.injectClientCode(mockEvent as MCEvent)
 
       expect(logger.error).toHaveBeenCalledWith('Failed to inject client code:', expect.any(Error))
-      // Failsafe should be attempted (will also fail in this test due to mock)
+      // Failsafe should be attempted
       expect(mockClient.execute).toHaveBeenCalled()
-    })
-
-    it('should handle empty experiment data', () => {
-      const emptyData: ContextData = { experiments: [] }
-      const injector = new ClientInjector(settings, logger)
-
-      injector.injectExperimentCode(mockEvent as MCEvent, emptyData)
-
-      expect(mockClient.execute).toHaveBeenCalled()
-      expect(logger.debug).toHaveBeenCalledWith('Injecting client code', {
-        experimentsCount: 0,
-      })
     })
   })
 
@@ -160,13 +121,13 @@ describe('ClientInjector', () => {
       settings.ENABLE_DEBUG = true
       const injector = new ClientInjector(settings, logger)
 
-      injector.injectDebugInfo(mockEvent as MCEvent, experimentData)
+      injector.injectDebugInfo(mockEvent as MCEvent)
 
       expect(mockClient.execute).toHaveBeenCalledWith(
         expect.stringContaining('console.log')
       )
       expect(mockClient.execute).toHaveBeenCalledWith(
-        expect.stringContaining('[ABSmartly] Experiment data:')
+        expect.stringContaining('[ABSmartly] Zaraz mode initialized')
       )
       expect(mockClient.execute).toHaveBeenCalledWith(
         expect.stringContaining('[ABSmartly] Settings:')
@@ -177,7 +138,7 @@ describe('ClientInjector', () => {
       settings.ENABLE_DEBUG = false
       const injector = new ClientInjector(settings, logger)
 
-      injector.injectDebugInfo(mockEvent as MCEvent, experimentData)
+      injector.injectDebugInfo(mockEvent as MCEvent)
 
       expect(mockClient.execute).not.toHaveBeenCalled()
     })
@@ -185,25 +146,15 @@ describe('ClientInjector', () => {
     it('should include correct settings in debug info', () => {
       settings.ENABLE_DEBUG = true
       settings.DEPLOYMENT_MODE = 'zaraz'
-      settings.ENABLE_WEB_VITALS = true
+      settings.ENABLE_ANTI_FLICKER = true
       const injector = new ClientInjector(settings, logger)
 
-      injector.injectDebugInfo(mockEvent as MCEvent, experimentData)
+      injector.injectDebugInfo(mockEvent as MCEvent)
 
       const callArg = (mockClient.execute as any).mock.calls[0][0]
       expect(callArg).toContain("deployment: 'zaraz'")
-      expect(callArg).toContain('webVitals: true')
-    })
-
-    it('should stringify experiment data correctly', () => {
-      settings.ENABLE_DEBUG = true
-      const injector = new ClientInjector(settings, logger)
-
-      injector.injectDebugInfo(mockEvent as MCEvent, experimentData)
-
-      const callArg = (mockClient.execute as any).mock.calls[0][0]
-      expect(callArg).toContain('"experiments"')
-      expect(callArg).toContain('"experiment1"')
+      expect(callArg).toContain('antiFlicker:')
+      expect(callArg).toContain('triggerOnView:')
     })
 
     it('should handle injection error', () => {
@@ -213,7 +164,7 @@ describe('ClientInjector', () => {
       })
       const injector = new ClientInjector(settings, logger)
 
-      injector.injectDebugInfo(mockEvent as MCEvent, experimentData)
+      injector.injectDebugInfo(mockEvent as MCEvent)
 
       expect(logger.error).toHaveBeenCalledWith('Failed to inject debug info:', expect.any(Error))
     })
