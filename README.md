@@ -7,7 +7,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 - 🚀 **Edge-based context creation** - 60-70% faster than client-only SDK
 - ⚡ **Zero flicker** - Server-side HTML processing in both Zaraz and WebCM modes
 - 🎨 **Visual Editor support** - All 10 DOM change types
-- 🔧 **Two deployment modes** - Zaraz (easy) or WebCM (maximum performance)
+- 🔧 **Two deployment modes** - Zaraz (Cloudflare) or WebCM (custom infrastructure)
 - 🍪 **Persistent user identity** - Cookie-based tracking
 - 🧪 **QA override support** - URL params + Browser Extension
 - 📊 **Event tracking** - Goals, ecommerce, web vitals
@@ -52,7 +52,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 
 3. **Done!** Your experiments will now run with minimal flicker.
 
-### Option B: WebCM Proxy (Maximum Performance)
+### Option B: WebCM Proxy (Custom Infrastructure)
 
 1. **Install WebCM**
    ```bash
@@ -111,9 +111,9 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 **Architecture**: Edge modifies HTML → Browser receives final version
 
 **Best for**:
-- Maximum performance and zero flicker
-- SEO-critical pages
-- When you control the infrastructure
+- When you control the infrastructure (nginx, etc.)
+- Custom routing and filtering requirements
+- Integration with existing proxies
 - Complex CSS selectors (with linkedom support)
 
 **How it works**:
@@ -164,9 +164,16 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
    - **Zaraz**: Optional client SDK injection for client-side A/B testing (SPA navigation)
    - **WebCM**: Use ABsmartly SDK directly for SPA support (no bridge needed)
 
-**Choose Zaraz if:** You want easy deployment, already use Cloudflare Zaraz, or need built-in client SDK support
+**Choose Zaraz if:**
+- You already use Cloudflare and want easy 1-click setup
+- You want experiments running without infrastructure changes
+- You need built-in client SDK support for client-side A/B testing
 
-**Choose WebCM if:** You want custom infrastructure control, prefer external SDK integration, or need complex routing rules
+**Choose WebCM if:**
+- You control your own infrastructure (nginx, reverse proxy, etc.)
+- You need custom request routing or filtering logic
+- You want to integrate with an existing edge proxy
+- You prefer to manage the deployment yourself
 
 ## Configuration
 
@@ -689,10 +696,12 @@ Add viewport tracking to any change:
 | Metric | Client SDK | Zaraz MC | WebCM MC |
 |--------|-----------|----------|----------|
 | Context Creation | 150-300ms | 50-100ms | 50-100ms |
-| Flicker Duration | 300-500ms | 50-150ms | **0ms** |
-| Page Load Impact | +500KB | +50KB | 0KB |
-| CSS Selectors | Basic | Basic | Full (linkedom) |
-| Server Response | 0ms | 0ms | +10-30ms |
+| Flicker Duration | 300-500ms | **0ms** | **0ms** |
+| Page Load Impact | +500KB | +2.5KB | +2.5KB |
+| CSS Selectors | Basic | Full (linkedom) | Full (linkedom) |
+| Server Response Time | 0ms | 0ms | +10-30ms |
+
+**Note**: Both Zaraz and WebCM modes are now functionally identical. They share the same server-side HTML processing, client bundle, and performance characteristics. The only difference is deployment method (Cloudflare vs. custom proxy).
 
 ### Bundle Sizes
 
@@ -711,7 +720,7 @@ Add viewport tracking to any change:
 2. **Use specific selectors**: `.hero-title` is faster than `div > h1`
 3. **Avoid JavaScript changes**: Use declarative changes when possible
 4. **Set appropriate timeout**: `HIDE_TIMEOUT` should match your P95 load time
-5. **Use WebCM for zero flicker**: When infrastructure allows
+5. **Both modes deliver zero flicker**: No performance trade-off between Zaraz and WebCM
 
 ## Documentation
 
@@ -835,17 +844,17 @@ src/
 
 ### When should I use Zaraz vs WebCM?
 
+Both modes now have **identical performance and features** (zero flicker, full CSS selector support, etc.).
+
 **Use Zaraz if:**
 - You're already using Cloudflare
-- You want easy deployment via dashboard
-- You need Treatment tags
-- 50-150ms flicker is acceptable
+- You want quick deployment via dashboard (no infrastructure changes)
+- You want built-in client SDK support
 
 **Use WebCM if:**
-- You need zero flicker
-- You control the infrastructure
-- You need complex CSS selectors
-- SEO is critical
+- You control your own infrastructure
+- You need custom request routing or filtering
+- You prefer managing deployment yourself
 
 ### Do Treatment tags work in WebCM mode?
 
