@@ -340,14 +340,16 @@ Use custom variant names with `VARIANT_MAPPING`:
 
 #### Default Fallback
 
-Show default content when user is not in the experiment:
+Variant 0 or A serves as the control/default when no treatment is assigned:
 
 ```html
 <Treatment name="promo_banner">
   <TreatmentVariant variant="A">Limited Time: 50% Off!</TreatmentVariant>
-  <TreatmentVariant default>Shop Now</TreatmentVariant>
+  <TreatmentVariant variant="0">Shop Now</TreatmentVariant>
 </Treatment>
 ```
+
+**Note:** The parser implicitly uses variant `0` (numeric) or variant `A` (alphabetic) as the default when no matching treatment is found. You must explicitly specify `variant="0"` or `variant="A"` to define control content.
 
 #### Trigger-on-View (Viewport Tracking)
 
@@ -383,7 +385,7 @@ Track exposure only when content enters the viewport:
       <h1>Scale with Confidence</h1>
       <p class="subheadline">Trusted by industry leaders</p>
     </TreatmentVariant>
-    <TreatmentVariant default>
+    <TreatmentVariant variant="0">
       <h1>Welcome</h1>
     </TreatmentVariant>
   </Treatment>
