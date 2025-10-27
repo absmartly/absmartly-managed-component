@@ -11,7 +11,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 - 🍪 **Persistent user identity** - Cookie-based tracking
 - 🧪 **QA override support** - URL params + Browser Extension
 - 📊 **Event tracking** - Goals, ecommerce, web vitals
-- 📱 **SPA support** - React, Vue, Angular compatible
+- 📱 **SPA compatible** - Works with React, Vue, Angular via ABsmartly SDK
 - 🎯 **Treatment tags** - React-like HTML syntax for inline experiments
 - 👁️ **Viewport tracking** - Client-side exposure on element visibility
 - 🔍 **Full CSS selectors** - Complex selectors with linkedom (both modes)
@@ -73,8 +73,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
          "ABSMARTLY_API_KEY": "your-api-key",
          "ABSMARTLY_ENDPOINT": "https://api.absmartly.io/v1",
          "ABSMARTLY_ENVIRONMENT": "production",
-         "ABSMARTLY_APPLICATION": "website",
-         "ENABLE_SPA_MODE": true
+         "ABSMARTLY_APPLICATION": "website"
        }
      }]
    }
@@ -137,10 +136,9 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 | **Treatment Tags** | ✅ Server-side | ✅ Server-side |
 | **Flicker** | 0ms | 0ms |
 | **On-View Tracking** | ✅ Yes | ✅ Yes |
-| **SPA API Endpoint** | ✅ Yes (`/__absmartly/context`) | ✅ Yes (`/__absmartly/context`) |
-| **Client-side JS** | ✅ Always injected (~7KB) | ❌ Optional (SPA mode only) |
+| **Client-side Bundle** | ✅ ~2-2.5KB (anti-flicker, trigger-on-view) | ✅ ~2-2.5KB (same bundle) |
 | **Event Tracking** | Pageview, track, event, ecommerce | track, event, ecommerce |
-| **Use Case** | Easy deployment, Zaraz users | Custom infrastructure |
+| **Use Case** | Easy deployment, Zaraz users | Custom infrastructure, zero client JS |
 
 ### Key Differences Explained
 
@@ -149,7 +147,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 - ✅ Both process HTML server-side (zero flicker)
 - ✅ Both support Treatment tags and DOM changes identically
 - ✅ Both support on-view exposure tracking (ExperimentView events)
-- ✅ Both provide SPA API endpoint (`/__absmartly/context`)
+- ✅ Both inject the same lightweight client bundle (~2-2.5KB for anti-flicker + trigger-on-view)
 - ✅ Both handle the same event types
 
 **The ONLY differences now are:**
@@ -158,17 +156,17 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
    - **Zaraz**: Deploy via Cloudflare Dashboard in minutes (no infrastructure changes)
    - **WebCM**: Deploy via custom proxy infrastructure (nginx → WebCM → origin)
 
-2. **Client-side JavaScript**
-   - **Zaraz**: Always injects ~7KB client bundle (includes on-view tracking, anti-flicker, web vitals)
-   - **WebCM**: Optional client JS only when `ENABLE_SPA_MODE: true` is set
-
-3. **Event Handling**
+2. **Event Handling**
    - **Zaraz**: Full event ecosystem including `pageview` event
    - **WebCM**: `track`, `event`, `ecommerce` events (no pageview)
 
-**Choose Zaraz if:** You want easy deployment, already use Cloudflare Zaraz, or don't mind ~7KB client JS
+3. **Client SDK Integration**
+   - **Zaraz**: Optional client SDK injection for client-side A/B testing (SPA navigation)
+   - **WebCM**: Use ABsmartly SDK directly for SPA support (no bridge needed)
 
-**Choose WebCM if:** You want zero client JS by default, have custom proxy infrastructure, or need full control
+**Choose Zaraz if:** You want easy deployment, already use Cloudflare Zaraz, or need built-in client SDK support
+
+**Choose WebCM if:** You want custom infrastructure control, prefer external SDK integration, or need complex routing rules
 
 ## Configuration
 
@@ -194,22 +192,29 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 | `COOKIE_NAME` | string | `"absmartly_id"` | Cookie name for user ID |
 | `COOKIE_MAX_AGE` | number | `365` | Cookie lifetime in days |
 
-### Anti-Flicker Settings (Zaraz Mode)
+### Anti-Flicker Settings (Both Modes)
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
+| `ENABLE_ANTI_FLICKER` | boolean | `true` | Enable anti-flicker CSS injection |
 | `HIDE_SELECTOR` | string | `"body"` | CSS selector to hide during loading |
 | `HIDE_TIMEOUT` | number | `3000` | Maximum hide time in milliseconds |
-| `TRANSITION_MS` | number | `300` | Fade-in duration in milliseconds |
+| `TRANSITION_MS` | string | `"300"` | Fade-in duration in milliseconds |
+
+### Client-Side Features (Both Modes)
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `INJECT_CLIENT_BUNDLE` | boolean | `true` | Inject client bundle (anti-flicker + trigger-on-view) |
+| `ENABLE_TRIGGER_ON_VIEW` | boolean | `true` | Enable viewport exposure tracking with IntersectionObserver |
 
 ### Feature Flags
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `ENABLE_SPA_MODE` | boolean | `true` | Enable SPA navigation support |
 | `ENABLE_WEB_VITALS` | boolean | `false` | Track Core Web Vitals (CLS, LCP, FID, etc.) |
 | `ENABLE_EMBEDS` | boolean | `true` | Enable server-side Treatment tag processing |
-| `INJECT_CLIENT_DATA` | boolean | `true` | Inject experiment data into page (WebCM only) |
+| `INJECT_CLIENT_DATA` | boolean | `false` | Inject experiment data into page (WebCM only) |
 | `ENABLE_DEBUG` | boolean | `false` | Enable debug logging in browser console |
 
 ### Advanced Settings
@@ -249,16 +254,14 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 }
 ```
 
-#### WebCM Mode - With SPA Support
+#### WebCM Mode - Basic
 ```javascript
 {
   "DEPLOYMENT_MODE": "webcm",
   "ABSMARTLY_API_KEY": "your-api-key",
   "ABSMARTLY_ENDPOINT": "https://api.absmartly.io/v1",
   "ABSMARTLY_ENVIRONMENT": "production",
-  "ABSMARTLY_APPLICATION": "website",
-  "ENABLE_SPA_MODE": true,
-  "INJECT_CLIENT_DATA": true
+  "ABSMARTLY_APPLICATION": "website"
 }
 ```
 
@@ -509,44 +512,46 @@ Overrides are automatically detected and applied.
 
 ### SPA Support
 
-#### Zaraz Mode - Client-Side
+Both modes support Single-Page Applications through the **ABsmartly SDK**:
 
-Automatically detects navigation in React, Vue, Angular, etc.:
+**First Page Load:**
+- Server-side: HTML is manipulated at the edge (0ms flicker)
+- Browser receives final HTML with experiment applied
 
-- Watches for DOM changes
-- Re-applies pending DOM changes after navigation
-- Polls for path changes (fallback)
-
-**Configuration:**
-```javascript
-{
-  "ENABLE_SPA_MODE": true
-}
-```
-
-**No code changes required** - works automatically!
-
-#### WebCM Mode - Hybrid
-
-Server-side first load + client-side navigation:
-
-1. First page load: Server-side HTML manipulation (0ms flicker)
-2. Navigation: Client-side bridge fetches new experiments
-3. Applies changes client-side without page reload
-
-**How it works:**
-- Injects SPA bridge script into HTML
-- Intercepts `history.pushState` / `replaceState`
-- Fetches experiments via `/__absmartly/context` endpoint
-- Applies DOM changes client-side
+**Client-Side Navigation:**
+- ABsmartly SDK detects navigation via History API
+- Automatically fetches new context for current URL
+- Applies experiment treatments client-side
+- No managed component action needed
 
 **Configuration:**
+
+Simply use the ABsmartly SDK on your SPA as you would normally:
+
 ```javascript
-{
-  "ENABLE_SPA_MODE": true,
-  "INJECT_CLIENT_DATA": true
-}
+const context = await sdk.createContext({ ... })
+context.ready().then(() => {
+  const treatment = context.treatment('experiment_name')
+  // Apply treatment in your component
+})
+context.publish()
 ```
+
+The managed component handles:
+- Initial page load experiments (server-side)
+- Context creation with correct user identity
+- Exposure tracking via `context.publish()`
+
+The ABsmartly SDK handles:
+- Client-side navigation detection
+- On-demand context creation during navigation
+- Treatment application in client code
+
+**Why this approach?**
+- Simpler integration (no duplicate logic)
+- Better control over when treatments apply
+- Works with any framework
+- Reduces managed component complexity
 
 ## Supported DOM Change Types
 
@@ -693,8 +698,10 @@ Add viewport tracking to any change:
 
 | Mode | Client Bundle | Server Bundle |
 |------|--------------|---------------|
-| Zaraz | ~7KB | - |
-| WebCM | 0KB | 721KB (includes linkedom) |
+| Zaraz | ~2-2.5KB (anti-flicker + trigger-on-view) | - |
+| WebCM | ~2-2.5KB (same as Zaraz) | 721KB (includes linkedom) |
+
+**Note**: Client bundle size is minimal and shared between both modes. It includes anti-flicker CSS, trigger-on-view script, and initialization code only. No DOM manipulation code is included.
 
 ### Best Practices
 
@@ -846,11 +853,11 @@ Yes! Treatment tags work in both Zaraz and WebCM modes. When `ENABLE_EMBEDS` is 
 
 ### How does trigger-on-view work?
 
-1. Server replaces Treatment tag with content + tracking attribute
-2. Client scans for `[trigger-on-view]` elements on page load
-3. IntersectionObserver watches each element
-4. When element is 50% visible, sends `ExperimentView` event
-5. ABsmartly records exposure at that moment
+1. Server replaces Treatment tag with content + `trigger-on-view` attribute
+2. Client injects IntersectionObserver that scans for elements with this attribute
+3. Watches each element with 50% visibility threshold
+4. When element becomes visible, sends `ExperimentView` track event
+5. ABsmartly records the exposure at that moment (solves below-the-fold SRM)
 
 ### Can I use Treatment tags with Visual Editor changes?
 
@@ -906,10 +913,11 @@ See [DOM Changes Comparison](/.claude/tasks/dom_changes_comparison.md) for detai
 
 ### SPA not working
 
-1. Ensure `ENABLE_SPA_MODE: true`
+1. Ensure ABsmartly SDK is properly configured on your frontend
 2. Check if framework uses History API (React Router, Vue Router, etc.)
-3. For hash routing (#/path), may need custom integration
-4. WebCM: Ensure `INJECT_CLIENT_DATA: true` for SPA bridge
+3. Verify SDK is fetching contexts on navigation (check Network tab)
+4. For hash routing (#/path), ensure SDK is configured with `hashRouting: true`
+5. Check browser console for SDK errors with `ENABLE_DEBUG: true` on the managed component
 
 ### Treatment tags not rendering
 
