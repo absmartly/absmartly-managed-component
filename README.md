@@ -410,8 +410,15 @@ Track exposure only when content enters the viewport:
 - `trigger-on-view` (optional): Enable viewport tracking
 
 `<TreatmentVariant>`:
-- `variant` (optional): Treatment number (0, 1, 2) or letter (A, B, C) or custom name
+- `variant` (required): Treatment number (0, 1, 2) or letter (A, B, C)
 
+**Variant Rules:**
+- Use **numeric variants only** (0, 1, 2, 3) OR **alphabetic variants only** (A, B, C, D)
+- Do **not mix** numeric and alphabetic variants in the same Treatment tag
+- ❌ Invalid: `<TreatmentVariant variant="0">` and `<TreatmentVariant variant="A">` in same Treatment
+- ✅ Valid: `<TreatmentVariant variant="0">` and `<TreatmentVariant variant="1">` in same Treatment
+- ✅ Valid: `<TreatmentVariant variant="A">` and `<TreatmentVariant variant="B">` in same Treatment
+- Variant 0 (numeric) or A (alphabetic) implicitly serves as the control/default
 
 **Processing:**
 - Server-side: Entire Treatment block is replaced with selected variant

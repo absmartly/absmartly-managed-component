@@ -578,6 +578,55 @@ describe('HTMLEmbedParser', () => {
       expect(result.valid).toBe(false)
       expect(result.errors).toContain('Duplicate variant identifier: a')
     })
+
+    it('should reject mixing numeric and alphabetic variants', () => {
+      const tag = {
+        name: 'test',
+        triggerOnView: false,
+        variants: [
+          { variant: 0, content: 'Control' },
+          { variant: 'A', content: 'Treatment A' },
+        ],
+        fullMatch: '',
+      }
+
+      const result = HTMLEmbedParser.validateTreatmentTag(tag)
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain('Cannot mix numeric and alphabetic variant identifiers in the same Treatment tag')
+    })
+
+    it('should reject mixing numeric and alphabetic variants (B and 1)', () => {
+      const tag = {
+        name: 'test',
+        triggerOnView: false,
+        variants: [
+          { variant: 1, content: 'Treatment 1' },
+          { variant: 'B', content: 'Treatment B' },
+        ],
+        fullMatch: '',
+      }
+
+      const result = HTMLEmbedParser.validateTreatmentTag(tag)
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain('Cannot mix numeric and alphabetic variant identifiers in the same Treatment tag')
+    })
+
+    it('should pass with all alphabetic variants', () => {
+      const tag = {
+        name: 'test',
+        triggerOnView: false,
+        variants: [
+          { variant: 'A', content: 'Control' },
+          { variant: 'B', content: 'Treatment B' },
+          { variant: 'C', content: 'Treatment C' },
+        ],
+        fullMatch: '',
+      }
+
+      const result = HTMLEmbedParser.validateTreatmentTag(tag)
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
   })
 
   describe('edge cases', () => {

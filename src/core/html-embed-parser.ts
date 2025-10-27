@@ -233,6 +233,24 @@ export class HTMLEmbedParser {
       errors.push('At least one variant is required')
     }
 
+    // Check for mixed numeric and alphabetic variants
+    let hasNumericVariant = false
+    let hasAlphabeticVariant = false
+
+    for (const variant of tag.variants) {
+      if (variant.variant !== undefined && variant.variant !== '') {
+        if (typeof variant.variant === 'number') {
+          hasNumericVariant = true
+        } else if (typeof variant.variant === 'string') {
+          hasAlphabeticVariant = true
+        }
+      }
+    }
+
+    if (hasNumericVariant && hasAlphabeticVariant) {
+      errors.push('Cannot mix numeric and alphabetic variant identifiers in the same Treatment tag')
+    }
+
     // Check for duplicate variant identifiers
     const seenVariants = new Set<string | number>()
     for (const variant of tag.variants) {
