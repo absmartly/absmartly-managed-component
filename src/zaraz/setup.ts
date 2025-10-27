@@ -163,11 +163,26 @@ export function setupZarazMode(
 
       // 7. Inject debug info if enabled
       if (settings.ENABLE_DEBUG) {
-        clientInjector.injectDebugInfo(event)
+        const debugScript = `
+        <script>
+          console.log('[ABSmartly] Zaraz mode initialized');
+          console.log('[ABSmartly] Settings:', {
+            deployment: '${settings.DEPLOYMENT_MODE}',
+            antiFlicker: ${settings.ENABLE_ANTI_FLICKER !== false},
+            triggerOnView: ${settings.ENABLE_TRIGGER_ON_VIEW !== false}
+          });
+        </script>
+        `
+        event.client.execute(debugScript)
       }
 
       // 8. Inject client code (anti-flicker + trigger-on-view)
-      clientInjector.injectClientCode(event)
+      const clientBundle = generateClientBundle({
+        mode: 'zaraz',
+        settings,
+        logger
+      })
+      event.client.execute(clientBundle)
 
       // 9. Track exposures immediately (context is short-lived on edge)
       await contextManager.publishContext(context)
@@ -176,7 +191,20 @@ export function setupZarazMode(
       logger.error('Pageview handler error:', error)
 
       // Graceful degradation - inject failsafe to reveal page
-      clientInjector.injectFailsafe(event)
+      const selector = settings.HIDE_SELECTOR || 'body'
+      const failsafeScript = `
+      <script>
+        setTimeout(function() {
+          var el = document.querySelector('${selector}');
+          if (el) el.style.opacity = '1';
+        }, 100);
+      </script>
+      `
+      try {
+        event.client.execute(failsafeScript)
+      } catch (e) {
+        logger.error('Failed to inject failsafe:', e)
+      }
     }
   })
 
