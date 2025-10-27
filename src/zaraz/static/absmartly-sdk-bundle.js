@@ -1,19 +1,17 @@
 /**
  * ABsmartly SDK Bundle for Zaraz
  *
- * This file will contain:
- * 1. The ABsmartly JavaScript SDK (minified)
+ * This file contains:
+ * 1. The ABsmartly JavaScript SDK (bundled)
  * 2. The ABsmartlyInit helper function for easy initialization
  *
- * This bundle is served at /_zaraz/absmartly-sdk.js and cached by the browser
+ * This bundle is generated at build time and served at /_zaraz/absmartly-sdk.js
+ * with 1-year browser cache for optimal performance
  */
 
-// TODO: In production, this file should include the minified ABsmartly SDK
-// For now, this is a placeholder that documents the expected structure
-
-// The actual SDK would be bundled here via build process:
-// import { SDK } from '@absmartly/javascript-sdk';
-// window.ABsmartly = { SDK };
+// Import and expose the SDK globally
+const ABsmartlySDK = require('@absmartly/javascript-sdk')
+window.ABsmartly = ABsmartlySDK
 
 /**
  * ABsmartlyInit - Helper function to initialize the SDK with configuration
