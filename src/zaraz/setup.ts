@@ -11,6 +11,7 @@ import { HTMLProcessor } from '../core/html-processor'
 import { SDKInjector } from '../core/sdk-injector'
 import { generateClientBundle } from '../shared/client-bundle-generator'
 import { createLogger } from '../utils/logger'
+import sdkBundleSource from './static/absmartly-sdk-bundle.js?raw'
 
 export function setupZarazMode(
   manager: Manager,
@@ -210,6 +211,24 @@ export function setupZarazMode(
 
   // Set up event handlers (track, event, ecommerce)
   eventHandlers.setupEventListeners(manager)
+
+  // Set up SDK bundle route (for bundled SDK strategy)
+  manager.route({
+    path: '/_zaraz/absmartly-sdk.js',
+    method: 'GET',
+    handler: async (event: MCEvent) => {
+      const cacheControl = 'public, max-age=31536000, immutable'
+      event.client.return(
+        new Response(sdkBundleSource, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/javascript',
+            'Cache-Control': cacheControl,
+          },
+        })
+      )
+    },
+  })
 
   logger.log(
     'ABsmartly Managed Component - Zaraz mode initialized successfully'

@@ -179,10 +179,26 @@ export class SDKInjector {
     const unitId = JSON.stringify(payload.unitId)
 
     return `
+<script src="/_zaraz/absmartly-sdk.js" async></script>
 <script>
 (function(config, unitId, serverData, overrides) {
-  console.warn('[ABsmartly] Bundled SDK not yet implemented - use CDN strategy');
-  console.log('[ABsmartly] Would initialize with:', { config: config, unitId: unitId, hasServerData: !!serverData });
+  function init() {
+    if (typeof ABsmartlyInit !== 'undefined') {
+      try {
+        ABsmartlyInit(config, unitId, serverData, overrides);
+      } catch (error) {
+        console.error('[ABsmartly] Failed to initialize SDK:', error);
+      }
+    } else {
+      setTimeout(init, 50);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })(${JSON.stringify(config)}, ${unitId}, ${serverData}, ${overrides});
 </script>
     `.trim()

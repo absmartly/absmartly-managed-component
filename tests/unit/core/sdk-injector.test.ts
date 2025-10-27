@@ -222,7 +222,7 @@ describe('SDKInjector', () => {
   })
 
   describe('bundled strategy', () => {
-    it('should generate placeholder when strategy is bundled', () => {
+    it('should serve bundled SDK from /_zaraz/absmartly-sdk.js', () => {
       settings.CLIENT_SDK_STRATEGY = 'bundled'
       injector = new SDKInjector({ settings, logger: createLogger(false) })
 
@@ -233,8 +233,26 @@ describe('SDKInjector', () => {
         experiments: [],
       })
 
-      expect(script).toContain('console.warn')
-      expect(script).toContain('Bundled SDK not yet implemented')
+      expect(script).toContain('/_zaraz/absmartly-sdk.js')
+      expect(script).toContain('ABsmartlyInit')
+      expect(script).toContain('DOMContentLoaded')
+    })
+
+    it('should pass config and unitId to ABsmartlyInit', () => {
+      settings.CLIENT_SDK_STRATEGY = 'bundled'
+      injector = new SDKInjector({ settings, logger: createLogger(false) })
+
+      const script = injector.generateInjectionScript({
+        unitId: 'test-user-123',
+        contextData: { experiments: [] },
+        overrides: { exp1: 1 },
+        experiments: [],
+      })
+
+      expect(script).toContain('"test-user-123"')
+      expect(script).toContain('{"exp1":1}')
+      expect(script).toContain('endpoint')
+      expect(script).toContain('apiKey')
     })
   })
 
