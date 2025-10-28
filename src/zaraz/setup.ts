@@ -12,10 +12,6 @@ import { SDKInjector } from '../core/sdk-injector'
 import { generateClientBundle } from '../shared/client-bundle-generator'
 import { createLogger } from '../utils/logger'
 
-// SDK bundle will be generated at build time and embedded here
-// The esbuild process will replace SDK_BUNDLE_PLACEHOLDER with the actual bundle content
-const sdkBundleSource = 'SDK_BUNDLE_PLACEHOLDER'
-
 export function setupZarazMode(
   manager: Manager,
   settings: ABSmartlySettings
@@ -214,28 +210,6 @@ export function setupZarazMode(
 
   // Set up event handlers (track, event, ecommerce)
   eventHandlers.setupEventListeners(manager)
-
-  // Set up SDK bundle route (for bundled SDK strategy)
-  // Note: This route serves the bundled ABSmartly SDK for the "bundled" CLIENT_SDK_STRATEGY
-  // The actual SDK bundle must be generated at build time using esbuild
-  manager.route({
-    path: '/_zaraz/absmartly-sdk.js',
-    method: 'GET',
-    handler: async (event: MCEvent) => {
-      const cacheControl = 'public, max-age=31536000, immutable'
-      // In production, this should be replaced with the actual built bundle from dist/absmartly-sdk.js
-      // For now, return the source with ABSmartlyInit helper
-      event.client.return(
-        new Response(sdkBundleSource, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/javascript',
-            'Cache-Control': cacheControl,
-          },
-        })
-      )
-    },
-  })
 
   logger.log(
     'ABsmartly Managed Component - Zaraz mode initialized successfully'
