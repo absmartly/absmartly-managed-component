@@ -1,12 +1,6 @@
 import { Manager, MCEvent } from '@managed-components/types'
 import { ABSmartlySettings } from '../types'
-import { ContextManager } from '../core/context-manager'
-import { CookieHandler } from '../core/cookie-handler'
-import { OverridesHandler } from '../core/overrides-handler'
-import { EventTracker } from '../core/event-tracker'
-import { ExperimentViewHandler } from '../core/experiment-view-handler'
-import { RequestHandler } from '../core/request-handler'
-import { EventHandlers } from '../core/event-handlers'
+import { createCoreManagers } from '../shared/setup-managers'
 import { ABSmartlyEndpointHandler } from './absmartly-endpoint-handler'
 import { HTMLProcessor } from '../core/html-processor'
 import { generateClientBundle } from '../shared/client-bundle-generator'
@@ -24,36 +18,19 @@ export function setupWebCMMode(
   const logger = createLogger(settings.ENABLE_DEBUG || false)
   logger.log('Initializing ABsmartly Managed Component - WebCM mode')
 
-  // Initialize core components
-  const contextManager = new ContextManager(manager, settings, logger)
-  const cookieHandler = new CookieHandler(settings)
-  const overridesHandler = new OverridesHandler()
-  const eventTracker = new EventTracker(
-    manager,
-    contextManager,
-    cookieHandler,
-    settings,
-    logger
-  )
-  const endpointHandler = new ABSmartlyEndpointHandler(settings, eventTracker, logger)
-  const experimentViewHandler = new ExperimentViewHandler(
+  // Initialize core components (shared with Zaraz)
+  const {
     contextManager,
     cookieHandler,
     overridesHandler,
-    logger
-  )
-  const requestHandler = new RequestHandler({
-    contextManager,
-    cookieHandler,
-    overridesHandler,
-    settings,
-    logger,
-  })
-  const eventHandlers = new EventHandlers({
     eventTracker,
     experimentViewHandler,
-    logger,
-  })
+    requestHandler,
+    eventHandlers,
+  } = createCoreManagers(manager, settings, logger)
+
+  // WebCM-specific components
+  const endpointHandler = new ABSmartlyEndpointHandler(settings, eventTracker, logger)
 
   // Intercept requests to handle /absmartly endpoint and manipulate responses
   manager.addEventListener('request', async (event: MCEvent) => {
@@ -64,7 +41,7 @@ export function setupWebCMMode(
     }
 
     // Check if URL should be manipulated based on excluded paths
-    const excludedPaths = (settings as any).EXCLUDED_PATHS || []
+    const excludedPaths = settings.EXCLUDED_PATHS || []
     let shouldSkip = false
     for (const path of excludedPaths) {
       if (event.client.url.toString().includes(path)) {
@@ -109,7 +86,7 @@ export function setupWebCMMode(
       let processedHTML = processor.processHTML(html, result.experimentData)
 
       // Inject experiment data for client-side tracking (optional)
-      const injectClientData = (settings as any).INJECT_CLIENT_DATA
+      const injectClientData = settings.INJECT_CLIENT_DATA
       if (injectClientData) {
         const dataScript = `
 <script id="absmartly-data" type="application/json">

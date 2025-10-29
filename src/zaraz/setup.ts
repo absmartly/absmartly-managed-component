@@ -1,12 +1,6 @@
 import { Manager, MCEvent } from '@managed-components/types'
 import { ABSmartlySettings } from '../types'
-import { ContextManager } from '../core/context-manager'
-import { CookieHandler } from '../core/cookie-handler'
-import { OverridesHandler } from '../core/overrides-handler'
-import { EventTracker } from '../core/event-tracker'
-import { ExperimentViewHandler } from '../core/experiment-view-handler'
-import { RequestHandler } from '../core/request-handler'
-import { EventHandlers } from '../core/event-handlers'
+import { createCoreManagers } from '../shared/setup-managers'
 import { HTMLProcessor } from '../core/html-processor'
 import { SDKInjector } from '../core/sdk-injector'
 import { generateClientBundle } from '../shared/client-bundle-generator'
@@ -19,36 +13,19 @@ export function setupZarazMode(
   const logger = createLogger(settings.ENABLE_DEBUG || false)
   logger.log('Initializing ABsmartly Managed Component - Zaraz mode')
 
-  // Initialize core components
-  const contextManager = new ContextManager(manager, settings, logger)
-  const cookieHandler = new CookieHandler(settings)
-  const overridesHandler = new OverridesHandler()
-  const eventTracker = new EventTracker(
-    manager,
-    contextManager,
-    cookieHandler,
-    settings,
-    logger
-  )
-  const sdkInjector = new SDKInjector({ settings, logger })
-  const experimentViewHandler = new ExperimentViewHandler(
+  // Initialize core components (shared with WebCM)
+  const {
     contextManager,
     cookieHandler,
     overridesHandler,
-    logger
-  )
-  const requestHandler = new RequestHandler({
-    contextManager,
-    cookieHandler,
-    overridesHandler,
-    settings,
-    logger,
-  })
-  const eventHandlers = new EventHandlers({
     eventTracker,
     experimentViewHandler,
-    logger,
-  })
+    requestHandler,
+    eventHandlers,
+  } = createCoreManagers(manager, settings, logger)
+
+  // Zaraz-specific components
+  const sdkInjector = new SDKInjector({ settings, logger })
 
   // Intercept requests to process Treatment tags in HTML (if enabled)
   if (settings.ENABLE_EMBEDS) {
