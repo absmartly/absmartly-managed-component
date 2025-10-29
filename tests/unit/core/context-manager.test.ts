@@ -55,6 +55,7 @@ describe('ContextManager', () => {
     mockContext = {
       ready: vi.fn().mockResolvedValue(undefined),
       override: vi.fn(),
+      overrides: vi.fn(), // Bulk overrides method (SDK supports passing object)
       attributes: vi.fn(),
       getData: vi.fn().mockReturnValue({
         experiments: [
@@ -120,8 +121,9 @@ describe('ContextManager', () => {
 
       await contextManager.createContext('user123', overrides, {})
 
-      expect(mockContext.override).toHaveBeenCalledWith('experiment1', 1)
-      expect(mockContext.override).toHaveBeenCalledWith('experiment2', 2)
+      // Expects bulk overrides() method (not individual override() calls)
+      expect(mockContext.overrides).toHaveBeenCalledWith(overrides)
+      expect(mockContext.overrides).toHaveBeenCalledTimes(1)
     })
 
     it('should set attributes on context', async () => {
