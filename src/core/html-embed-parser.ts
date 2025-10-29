@@ -33,25 +33,36 @@ export interface TreatmentTag {
 }
 
 export class HTMLEmbedParser {
+  // Cached regex patterns for better performance
+  private static readonly TREATMENT_REGEX =
+    /<Treatment\s+name=["']([^"']+)["']([^>]*?)>([\s\S]*?)<\/Treatment>/gi
+  private static readonly VARIANT_REGEX =
+    /<TreatmentVariant\s+([^>]+)>([\s\S]*?)<\/TreatmentVariant>/gi
+  private static readonly TRIGGER_ON_VIEW_REGEX = /\btrigger-on-view\b/
+  private static readonly VARIANT_ATTR_REGEX = /variant=["']?([^"'\s]+)["']?/
+  private static readonly NUMERIC_REGEX = /^\d+$/
+
+  // Alphabet constant for variant mapping (A=0, B=1, C=2, ...)
+  private static readonly ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
   /**
    * Parse Treatment tags from HTML
    */
   static parseTreatmentTags(html: string): TreatmentTag[] {
     const treatments: TreatmentTag[] = []
 
-    // Match <Treatment name="..." [trigger-on-view]>...</Treatment> blocks
-    const treatmentRegex =
-      /<Treatment\s+name=["']([^"']+)["']([^>]*?)>([\s\S]*?)<\/Treatment>/gi
+    // Reset regex lastIndex for reuse
+    this.TREATMENT_REGEX.lastIndex = 0
 
     let match: RegExpExecArray | null
-    while ((match = treatmentRegex.exec(html)) !== null) {
+    while ((match = this.TREATMENT_REGEX.exec(html)) !== null) {
       const fullMatch = match[0]
       const name = match[1]
       const attributes = match[2]
       const innerContent = match[3]
 
       // Check for trigger-on-view attribute
-      const triggerOnView = /\btrigger-on-view\b/.test(attributes)
+      const triggerOnView = this.TRIGGER_ON_VIEW_REGEX.test(attributes)
 
       // Parse variants from inner content
       const variants = this.parseVariants(innerContent)
@@ -73,22 +84,21 @@ export class HTMLEmbedParser {
   private static parseVariants(content: string): VariantDefinition[] {
     const variants: VariantDefinition[] = []
 
-    // Match <TreatmentVariant variant="A">...</TreatmentVariant>
-    const variantRegex =
-      /<TreatmentVariant\s+([^>]+)>([\s\S]*?)<\/TreatmentVariant>/gi
+    // Reset regex lastIndex for reuse
+    this.VARIANT_REGEX.lastIndex = 0
 
     let match: RegExpExecArray | null
-    while ((match = variantRegex.exec(content)) !== null) {
+    while ((match = this.VARIANT_REGEX.exec(content)) !== null) {
       const attributes = match[1]
       const variantContent = match[2].trim()
 
       // Extract variant identifier (can be "A", "B", "C" or 0, 1, 2)
       let variant: string | number = ''
-      const variantMatch = attributes.match(/variant=["']?([^"'\s]+)["']?/)
+      const variantMatch = attributes.match(this.VARIANT_ATTR_REGEX)
       if (variantMatch) {
         const value = variantMatch[1]
         // Check if it's a number
-        if (/^\d+$/.test(value)) {
+        if (this.NUMERIC_REGEX.test(value)) {
           variant = parseInt(value, 10)
         } else {
           variant = value
@@ -142,8 +152,7 @@ export class HTMLEmbedParser {
 
         // 3. Simple alphabetic mapping: A=0, B=1, C=2...
         if (!variantContent) {
-          const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-          const expectedLetter = alphabet[selectedTreatment]
+          const expectedLetter = this.ALPHABET[selectedTreatment]
           const alphaMatch = treatmentTag.variants.find(
             v =>
               typeof v.variant === 'string' &&
