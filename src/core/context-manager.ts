@@ -61,9 +61,9 @@ export class ContextManager {
     })
 
     // Apply overrides (QA mode)
-    for (const [experimentName, variant] of Object.entries(overrides)) {
-      context.override(experimentName, variant)
-      this.logger.debug('Applied override', { experimentName, variant })
+    if (Object.keys(overrides).length > 0) {
+      context.overrides(overrides)
+      this.logger.debug('Applied overrides', { overrides })
     }
 
     // Set context attributes for targeting
