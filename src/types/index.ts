@@ -55,6 +55,13 @@ export interface ABSmartlySettings extends MCComponentSettings {
   TRACK_ENDPOINT?: string         // Default: '/absmartly'
   TRACK_BATCH_TIMEOUT?: number    // Default: 0 (no batching)
   TRACK_BATCH_SIZE?: number       // Default: 1 (no batching)
+
+  // WebCM-specific settings
+  EXCLUDED_PATHS?: string[]       // Paths to exclude from HTML manipulation
+  INJECT_CLIENT_DATA?: boolean    // Whether to inject experiment data for client-side tracking
+
+  // Treatment tag processing
+  VARIANT_MAPPING?: Record<string, number>  // Map variant names to treatment numbers
 }
 
 // ABsmartly SDK Configuration
