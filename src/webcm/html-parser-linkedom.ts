@@ -1,5 +1,5 @@
 import { parseHTML } from 'linkedom'
-import { DOMChange } from '../types'
+import { DOMChange, Logger } from '../types'
 
 type LinkedomDocument = ReturnType<typeof parseHTML>['document']
 type LinkedomElement = ReturnType<LinkedomDocument['querySelector']>
@@ -10,7 +10,10 @@ type LinkedomElement = ReturnType<LinkedomDocument['querySelector']>
  * Supports complex selectors, pseudo-classes, and attribute selectors
  */
 export class HTMLParserLinkedom {
-  constructor(private html: string) {}
+  constructor(
+    private html: string,
+    private logger?: Logger
+  ) {}
 
   applyChanges(changes: DOMChange[]): string {
     // Parse HTML to real DOM
@@ -20,7 +23,7 @@ export class HTMLParserLinkedom {
       try {
         this.applyChange(document, change)
       } catch (error) {
-        console.error('[ABSmartly MC] Failed to apply change:', error, change)
+        this.logger?.error('[ABSmartly MC] Failed to apply change:', error, change)
       }
     }
 
@@ -35,7 +38,7 @@ export class HTMLParserLinkedom {
     const elements = document.querySelectorAll(selector)
 
     if (elements.length === 0) {
-      console.warn('[ABSmartly MC] No elements found for selector:', selector)
+      this.logger?.warn('[ABSmartly MC] No elements found for selector:', selector)
       return
     }
 
@@ -81,7 +84,7 @@ export class HTMLParserLinkedom {
 
       case 'javascript':
         // Can't execute JavaScript server-side, skip
-        console.warn(
+        this.logger?.warn(
           '[ABSmartly MC] JavaScript changes not supported server-side:',
           change
         )
@@ -98,7 +101,7 @@ export class HTMLParserLinkedom {
         break
 
       default:
-        console.warn('[ABSmartly MC] Unsupported change type:', change.type)
+        this.logger?.warn('[ABSmartly MC] Unsupported change type:', change.type)
     }
   }
 
@@ -167,13 +170,13 @@ export class HTMLParserLinkedom {
     if (!element) return
 
     if (!change.target) {
-      console.warn('[ABSmartly MC] Move operation requires target selector')
+      this.logger?.warn('[ABSmartly MC] Move operation requires target selector')
       return
     }
 
     const target = document.querySelector(change.target)
     if (!target) {
-      console.warn('[ABSmartly MC] Target not found for move:', change.target)
+      this.logger?.warn('[ABSmartly MC] Target not found for move:', change.target)
       return
     }
 
@@ -208,7 +211,7 @@ export class HTMLParserLinkedom {
     const config = change.value
 
     if (!config || typeof config !== 'object') {
-      console.warn('[ABSmartly MC] Invalid create config:', config)
+      this.logger?.warn('[ABSmartly MC] Invalid create config:', config)
       return
     }
 

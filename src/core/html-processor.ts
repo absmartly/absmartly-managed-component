@@ -124,7 +124,7 @@ export class HTMLProcessor {
     // Try linkedom parser first (if enabled)
     if (this.options.useLinkedom) {
       try {
-        const parser = new HTMLParserLinkedom(html)
+        const parser = new HTMLParserLinkedom(html, this.options.logger)
         return parser.applyChanges(changes)
       } catch (linkedomError) {
         this.options.logger.warn(
@@ -135,7 +135,16 @@ export class HTMLProcessor {
     }
 
     // Fallback to regex parser (always available)
-    const parser = new HTMLParser(html)
-    return parser.applyChanges(changes)
+    try {
+      const parser = new HTMLParser(html)
+      return parser.applyChanges(changes)
+    } catch (regexError) {
+      this.options.logger.error(
+        'Both linkedom and regex parsers failed to apply changes:',
+        regexError
+      )
+      // Return original HTML if both parsers fail
+      return html
+    }
   }
 }
