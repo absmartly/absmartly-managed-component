@@ -1,6 +1,11 @@
 import { parseHTML } from 'linkedom'
-import DOMPurify from 'isomorphic-dompurify'
 import { DOMChange, Logger } from '../types'
+import {
+  sanitizeHTMLContent,
+  sanitizeAttributeValue,
+} from '../utils/dom-sanitization'
+import { insertElementAtPosition, InsertPosition } from '../utils/dom-position'
+import { camelToKebab } from '../utils/string-transforms'
 
 type LinkedomDocument = ReturnType<typeof parseHTML>['document']
 type LinkedomElement = ReturnType<LinkedomDocument['querySelector']>
@@ -24,7 +29,11 @@ export class HTMLParserLinkedom {
       try {
         this.applyChange(document, change)
       } catch (error) {
-        this.logger?.error('[ABSmartly MC] Failed to apply change:', error, change)
+        this.logger?.error(
+          '[ABSmartly MC] Failed to apply change:',
+          error,
+          change
+        )
       }
     }
 
@@ -39,7 +48,10 @@ export class HTMLParserLinkedom {
     const elements = document.querySelectorAll(selector)
 
     if (elements.length === 0) {
-      this.logger?.warn('[ABSmartly MC] No elements found for selector:', selector)
+      this.logger?.warn(
+        '[ABSmartly MC] No elements found for selector:',
+        selector
+      )
       return
     }
 
@@ -49,56 +61,28 @@ export class HTMLParserLinkedom {
     }
   }
 
-  private sanitizeHTML(html: string): string {
-    let cleanHTML = DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
-        'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio',
-        'b', 'bdi', 'bdo', 'blockquote', 'br', 'button',
-        'canvas', 'caption', 'cite', 'code', 'col', 'colgroup',
-        'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt',
-        'em', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr',
-        'i', 'img', 'input', 'ins',
-        'kbd', 'label', 'legend', 'li', 'main', 'map', 'mark', 'meter',
-        'nav', 'ol', 'optgroup', 'option', 'output',
-        'p', 'picture', 'pre', 'progress',
-        'q', 'rp', 'rt', 'ruby',
-        's', 'samp', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup',
-        'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'tr', 'track',
-        'u', 'ul', 'var', 'video', 'wbr'
-      ],
-      ALLOWED_ATTR: [
-        'class', 'id', 'style', 'title', 'role', 'aria-*', 'data-*',
-        'href', 'target', 'rel', 'src', 'alt', 'width', 'height',
-        'type', 'name', 'value', 'placeholder', 'disabled', 'readonly', 'checked',
-        'colspan', 'rowspan', 'controls', 'autoplay', 'loop', 'muted'
-      ],
-      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-      FORBID_TAGS: ['script', 'object', 'link', 'meta'],
-      SANITIZE_DOM: true,
-      KEEP_CONTENT: true,
-      RETURN_DOM: false,
-      RETURN_DOM_FRAGMENT: false
-    })
-
-    cleanHTML = cleanHTML.replace(/\s(href|src)=(["'])data:(?:text\/html|application\/javascript)[^'"]*\2/gi, '')
-
-    return cleanHTML
-  }
-
   private applyChangeToElement(
     document: LinkedomDocument,
     element: LinkedomElement,
     change: DOMChange
   ): void {
+    // Null safety guard
+    if (!element) {
+      this.logger?.warn('[ABSmartly MC] Element is null, skipping change')
+      return
+    }
+
     switch (change.type) {
       case 'text':
-        element.textContent = change.value
+        element.textContent = String(change.value ?? '')
         break
 
       case 'html':
-        element.innerHTML = this.sanitizeHTML(change.value)
+        if (typeof change.value === 'string') {
+          element.innerHTML = sanitizeHTMLContent(change.value)
+        } else {
+          element.innerHTML = sanitizeHTMLContent(String(change.value ?? ''))
+        }
         break
 
       case 'style':
@@ -140,13 +124,16 @@ export class HTMLParserLinkedom {
         break
 
       default:
-        this.logger?.warn('[ABSmartly MC] Unsupported change type:', change.type)
+        this.logger?.warn(
+          '[ABSmartly MC] Unsupported change type:',
+          change.type
+        )
     }
   }
 
   private applyStyleChange(
     element: LinkedomElement,
-    styles: string | Record<string, string> | undefined
+    styles: string | Record<string, unknown> | undefined
   ): void {
     if (!element || !styles) return
 
@@ -160,8 +147,8 @@ export class HTMLParserLinkedom {
 
       // Merge new styles
       for (const [key, value] of Object.entries(styles)) {
-        const cssKey = this.camelToKebab(key)
-        styleMap[cssKey] = String(value)
+        const cssKey = camelToKebab(key)
+        styleMap[cssKey] = String(value ?? '')
       }
 
       // Rebuild style string
@@ -179,36 +166,13 @@ export class HTMLParserLinkedom {
     const classList = element.classList
 
     if (change.action === 'add') {
-      classList.add(change.value)
+      classList.add(String(change.value ?? ''))
     } else if (change.action === 'remove') {
-      classList.remove(change.value)
+      classList.remove(String(change.value ?? ''))
     } else {
       // Replace entire class attribute
-      element.className = change.value
+      element.className = String(change.value ?? '')
     }
-  }
-
-  private sanitizeAttributeValue(name: string, value: string): string {
-    // Block dangerous protocols in href/src attributes
-    if (name === 'href' || name === 'src') {
-      const lowerValue = value.toLowerCase().trim()
-      if (
-        lowerValue.startsWith('javascript:') ||
-        lowerValue.startsWith('data:') ||
-        lowerValue.startsWith('vbscript:')
-      ) {
-        this.logger?.warn('[ABSmartly MC] Blocked dangerous protocol in attribute:', name, value)
-        return ''
-      }
-    }
-
-    // Block event handler attributes
-    if (name.toLowerCase().startsWith('on')) {
-      this.logger?.warn('[ABSmartly MC] Blocked event handler attribute:', name)
-      return ''
-    }
-
-    return value
   }
 
   private applyAttributeChange(
@@ -220,7 +184,11 @@ export class HTMLParserLinkedom {
     if (change.value === null || change.value === undefined) {
       element.removeAttribute(change.name)
     } else {
-      const sanitizedValue = this.sanitizeAttributeValue(change.name, String(change.value))
+      const sanitizedValue = sanitizeAttributeValue(
+        change.name,
+        String(change.value),
+        this.logger
+      )
       if (sanitizedValue !== '') {
         element.setAttribute(change.name, sanitizedValue)
       } else {
@@ -238,35 +206,33 @@ export class HTMLParserLinkedom {
     if (!element) return
 
     if (!change.target) {
-      this.logger?.warn('[ABSmartly MC] Move operation requires target selector')
+      this.logger?.warn(
+        '[ABSmartly MC] Move operation requires target selector'
+      )
       return
     }
 
     const target = document.querySelector(change.target)
     if (!target) {
-      this.logger?.warn('[ABSmartly MC] Target not found for move:', change.target)
+      this.logger?.warn(
+        '[ABSmartly MC] Target not found for move:',
+        change.target
+      )
+      return
+    }
+
+    // Null safety guard for parentNode
+    if (!target.parentNode) {
+      this.logger?.warn('[ABSmartly MC] Target has no parent node')
       return
     }
 
     // Remove from current position
     element.remove()
 
-    // Insert at target position
-    switch (change.position) {
-      case 'before':
-        target.parentNode.insertBefore(element, target)
-        break
-      case 'after':
-        target.parentNode.insertBefore(element, target.nextSibling)
-        break
-      case 'prepend':
-        target.insertBefore(element, target.firstChild)
-        break
-      case 'append':
-      default:
-        target.appendChild(element)
-        break
-    }
+    // Insert at target position using shared utility
+    const position = (change.position as InsertPosition) || 'append'
+    insertElementAtPosition(position, element, target)
   }
 
   private createElement(
@@ -283,18 +249,25 @@ export class HTMLParserLinkedom {
       return
     }
 
-    // Create new element
-    const newElement = document.createElement(config.tag || 'div')
+    // Create new element with null safety guard
+    const tagName = String((config.tag as string) || 'div')
+    const newElement = document.createElement(tagName)
 
     // Set HTML content (sanitized to prevent XSS)
-    if (config.html) {
-      newElement.innerHTML = this.sanitizeHTML(config.html)
+    if (config.html && typeof config.html === 'string') {
+      newElement.innerHTML = sanitizeHTMLContent(config.html)
+    } else if (config.html) {
+      newElement.innerHTML = sanitizeHTMLContent(String(config.html))
     }
 
     // Set attributes (sanitized to prevent XSS)
     if (config.attributes) {
       for (const [name, value] of Object.entries(config.attributes)) {
-        const sanitizedValue = this.sanitizeAttributeValue(name, String(value))
+        const sanitizedValue = sanitizeAttributeValue(
+          name,
+          String(value),
+          this.logger
+        )
         if (sanitizedValue !== '') {
           newElement.setAttribute(name, sanitizedValue)
         }
@@ -310,22 +283,22 @@ export class HTMLParserLinkedom {
       }
     }
 
-    // Insert at specified position
-    switch (change.position) {
-      case 'before':
-        target.parentNode.insertBefore(newElement, target)
-        break
-      case 'after':
-        target.parentNode.insertBefore(newElement, target.nextSibling)
-        break
-      case 'prepend':
-        target.insertBefore(newElement, target.firstChild)
-        break
-      case 'append':
-      default:
-        target.appendChild(newElement)
-        break
+    // Null safety guard for parentNode
+    if (
+      !target.parentNode &&
+      (change.position === 'before' || change.position === 'after')
+    ) {
+      this.logger?.warn(
+        '[ABSmartly MC] Target has no parent node for before/after position'
+      )
+      // Fall back to append
+      target.appendChild(newElement)
+      return
     }
+
+    // Insert at specified position using shared utility
+    const position = (change.position as InsertPosition) || 'append'
+    insertElementAtPosition(position, newElement, target)
   }
 
   private addStyleRules(document: LinkedomDocument, rules: string): void {
@@ -336,7 +309,7 @@ export class HTMLParserLinkedom {
       styleElement = document.createElement('style')
       styleElement.setAttribute('id', 'absmartly-styles')
 
-      // Insert in head if it exists
+      // Null safety guard - Insert in head if it exists
       const head = document.querySelector('head')
       if (head) {
         head.appendChild(styleElement)
@@ -345,7 +318,8 @@ export class HTMLParserLinkedom {
         const body = document.querySelector('body')
         if (body) {
           body.insertBefore(styleElement, body.firstChild)
-        } else {
+        } else if (document.documentElement) {
+          // Null safety guard for documentElement
           document.documentElement.insertBefore(
             styleElement,
             document.documentElement.firstChild
@@ -374,9 +348,5 @@ export class HTMLParserLinkedom {
     }
 
     return styles
-  }
-
-  private camelToKebab(str: string): string {
-    return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
   }
 }

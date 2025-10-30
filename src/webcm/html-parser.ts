@@ -1,5 +1,10 @@
-import DOMPurify from 'isomorphic-dompurify'
 import { DOMChange, Logger } from '../types'
+import {
+  sanitizeHTMLContent,
+  sanitizeAttributeValue,
+} from '../utils/dom-sanitization'
+import { insertAtPosition, InsertPosition } from '../utils/dom-position'
+import { camelToKebab } from '../utils/string-transforms'
 
 export class HTMLParser {
   constructor(
@@ -7,53 +12,15 @@ export class HTMLParser {
     private logger?: Logger
   ) {}
 
-  private sanitizeHTML(html: string): string {
-    let cleanHTML = DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
-        'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio',
-        'b', 'bdi', 'bdo', 'blockquote', 'br', 'button',
-        'canvas', 'caption', 'cite', 'code', 'col', 'colgroup',
-        'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt',
-        'em', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr',
-        'i', 'img', 'input', 'ins',
-        'kbd', 'label', 'legend', 'li', 'main', 'map', 'mark', 'meter',
-        'nav', 'ol', 'optgroup', 'option', 'output',
-        'p', 'picture', 'pre', 'progress',
-        'q', 'rp', 'rt', 'ruby',
-        's', 'samp', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup',
-        'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'tr', 'track',
-        'u', 'ul', 'var', 'video', 'wbr'
-      ],
-      ALLOWED_ATTR: [
-        'class', 'id', 'style', 'title', 'role', 'aria-*', 'data-*',
-        'href', 'target', 'rel', 'src', 'alt', 'width', 'height',
-        'type', 'name', 'value', 'placeholder', 'disabled', 'readonly', 'checked',
-        'colspan', 'rowspan', 'controls', 'autoplay', 'loop', 'muted'
-      ],
-      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-      FORBID_TAGS: ['script', 'object', 'link', 'meta'],
-      SANITIZE_DOM: true,
-      KEEP_CONTENT: true,
-      RETURN_DOM: false,
-      RETURN_DOM_FRAGMENT: false
-    })
-
-    cleanHTML = cleanHTML.replace(/\s(href|src)=(["'])data:(?:text\/html|application\/javascript)[^'"]*\2/gi, '')
-
-    return cleanHTML
-  }
-
   private escapeHTML(text: string): string {
     const escapeMap: Record<string, string> = {
       '&': '&amp;',
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
-      "'": '&#x27;'
+      "'": '&#x27;',
     }
-    return String(text).replace(/[&<>"']/g, (char) => escapeMap[char])
+    return String(text).replace(/[&<>"']/g, char => escapeMap[char])
   }
 
   private escapeAttribute(value: string): string {
@@ -62,30 +29,11 @@ export class HTMLParser {
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
-      "'": '&#x27;'
+      "'": '&#x27;',
     }
-    return String(value).replace(/[&<>"']/g, (char) => escapeMap[char]).replace(/\n/g, '&#10;')
-  }
-
-  private sanitizeAttributeValue(name: string, value: string): string {
-    if (name === 'href' || name === 'src') {
-      const lowerValue = value.toLowerCase().trim()
-      if (
-        lowerValue.startsWith('javascript:') ||
-        lowerValue.startsWith('data:') ||
-        lowerValue.startsWith('vbscript:')
-      ) {
-        this.logger?.warn('[ABSmartly MC] Blocked dangerous protocol in attribute:', name, value)
-        return ''
-      }
-    }
-
-    if (name.toLowerCase().startsWith('on')) {
-      this.logger?.warn('[ABSmartly MC] Blocked event handler attribute:', name)
-      return ''
-    }
-
-    return value
+    return String(value)
+      .replace(/[&<>"']/g, char => escapeMap[char])
+      .replace(/\n/g, '&#10;')
   }
 
   private validateClassName(className: string): string {
@@ -99,7 +47,7 @@ export class HTMLParser {
       /import\s+/gi,
       /@import/gi,
       /behavior\s*:/gi,
-      /-moz-binding/gi
+      /-moz-binding/gi,
     ]
 
     let sanitized = styles
@@ -131,10 +79,14 @@ export class HTMLParser {
 
     switch (type) {
       case 'text':
-        return this.replaceTextContent(html, selector, change.value)
+        return this.replaceTextContent(
+          html,
+          selector,
+          String(change.value ?? '')
+        )
 
       case 'html':
-        return this.replaceInnerHTML(html, selector, change.value)
+        return this.replaceInnerHTML(html, selector, String(change.value ?? ''))
 
       case 'attribute':
         if (!change.name) {
@@ -144,13 +96,28 @@ export class HTMLParser {
 
       case 'class':
         if (change.action === 'add') {
-          return this.addClass(html, selector, change.value)
+          return this.addClass(html, selector, String(change.value ?? ''))
         } else {
-          return this.removeClass(html, selector, change.value)
+          return this.removeClass(html, selector, String(change.value ?? ''))
         }
 
-      case 'style':
-        return this.addInlineStyle(html, selector, change.value)
+      case 'style': {
+        // Handle style value type conversion
+        let styleValue: string | Record<string, string> | undefined
+        if (typeof change.value === 'string') {
+          styleValue = change.value
+        } else if (change.value && typeof change.value === 'object') {
+          // Convert Record<string, unknown> to Record<string, string>
+          const styleObj: Record<string, string> = {}
+          for (const [key, val] of Object.entries(change.value)) {
+            styleObj[key] = String(val ?? '')
+          }
+          styleValue = styleObj
+        } else {
+          styleValue = undefined
+        }
+        return this.addInlineStyle(html, selector, styleValue)
+      }
 
       case 'delete':
         return this.deleteElement(html, selector)
@@ -182,6 +149,14 @@ export class HTMLParser {
     newText: string
   ): string {
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
     const pattern = new RegExp(`(<${tag}[^>]*>)([^<]*)(</${tag}>)`, 'gi')
     const escapedText = this.escapeHTML(newText)
     return html.replace(pattern, `$1${escapedText}$3`)
@@ -193,8 +168,16 @@ export class HTMLParser {
     newHTML: string
   ): string {
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
     const pattern = new RegExp(`(<${tag}[^>]*>)(.*?)(</${tag}>)`, 'gis')
-    const sanitizedHTML = this.sanitizeHTML(newHTML)
+    const sanitizedHTML = sanitizeHTMLContent(newHTML)
     return html.replace(pattern, `$1${sanitizedHTML}$3`)
   }
 
@@ -205,6 +188,14 @@ export class HTMLParser {
     attrValue: string | number | boolean | Record<string, unknown> | undefined
   ): string {
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
 
     if (attrValue === null || attrValue === undefined) {
       const pattern = new RegExp(
@@ -214,7 +205,11 @@ export class HTMLParser {
       return html.replace(pattern, '$1$2')
     } else {
       const stringValue = String(attrValue)
-      const sanitizedValue = this.sanitizeAttributeValue(attrName, stringValue)
+      const sanitizedValue = sanitizeAttributeValue(
+        attrName,
+        stringValue,
+        this.logger
+      )
 
       if (sanitizedValue === '') {
         const pattern = new RegExp(
@@ -242,6 +237,14 @@ export class HTMLParser {
 
   private addClass(html: string, selector: string, className: string): string {
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
     const pattern = new RegExp(`<${tag}([^>]*)>`, 'gi')
     const validClassName = this.validateClassName(className)
 
@@ -261,6 +264,14 @@ export class HTMLParser {
     className: string
   ): string {
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
     const pattern = new RegExp(`<${tag}([^>]*)>`, 'gi')
     const validClassName = this.validateClassName(className)
 
@@ -273,18 +284,31 @@ export class HTMLParser {
   private addInlineStyle(
     html: string,
     selector: string,
-    styles: string | Record<string, string>
+    styles: string | Record<string, string> | undefined
   ): string {
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
     const pattern = new RegExp(`<${tag}([^>]*)>`, 'gi')
 
     const styleString =
-      typeof styles === 'string' ? styles : this.objectToStyleString(styles)
+      typeof styles === 'string'
+        ? styles
+        : this.objectToStyleString(styles || {})
     const sanitizedStyle = this.sanitizeStyleString(styleString)
 
     return html.replace(pattern, (match, attrs) => {
       if (attrs.includes('style=')) {
-        attrs = attrs.replace(/style="([^"]*)"/, `style="$1; ${sanitizedStyle}"`)
+        attrs = attrs.replace(
+          /style="([^"]*)"/,
+          `style="$1; ${sanitizedStyle}"`
+        )
       } else {
         attrs += ` style="${sanitizedStyle}"`
       }
@@ -294,6 +318,14 @@ export class HTMLParser {
 
   private deleteElement(html: string, selector: string): string {
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
     const pattern = new RegExp(`<${tag}[^>]*>.*?</${tag}>`, 'gis')
     return html.replace(pattern, '')
   }
@@ -317,32 +349,34 @@ export class HTMLParser {
 
   private objectToStyleString(styles: Record<string, string>): string {
     return Object.entries(styles)
-      .map(([key, value]) => `${this.camelToKebab(key)}: ${value}`)
+      .map(([key, value]) => `${camelToKebab(key)}: ${value}`)
       .join('; ')
-  }
-
-  private camelToKebab(str: string): string {
-    return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
   }
 
   private createElement(html: string, change: DOMChange): string {
     const { selector, value, position = 'append' } = change
     const tag = this.extractTagFromSelector(selector)
+    // Null safety guard
+    if (!tag) {
+      this.logger?.warn(
+        '[ABSmartly MC] Invalid selector, no tag found:',
+        selector
+      )
+      return html
+    }
     const pattern = new RegExp(`(<${tag}[^>]*>)(.*?)(</${tag}>)`, 'gis')
-    const sanitizedValue = this.sanitizeHTML(value)
+    const sanitizedValue = sanitizeHTMLContent(String(value ?? ''))
 
     return html.replace(pattern, (match, openTag, content, closeTag) => {
-      switch (position) {
-        case 'before':
-          return `${sanitizedValue}${match}`
-        case 'after':
-          return `${match}${sanitizedValue}`
-        case 'prepend':
-          return `${openTag}${sanitizedValue}${content}${closeTag}`
-        case 'append':
-        default:
-          return `${openTag}${content}${sanitizedValue}${closeTag}`
-      }
+      // Use shared utility for position insertion
+      return insertAtPosition(
+        position as InsertPosition,
+        sanitizedValue,
+        match,
+        openTag,
+        content,
+        closeTag
+      )
     })
   }
 
@@ -350,7 +384,9 @@ export class HTMLParser {
     const { selector, target, position = 'append' } = change
 
     if (!target) {
-      this.logger?.warn('[ABSmartly MC] Move operation requires a target selector')
+      this.logger?.warn(
+        '[ABSmartly MC] Move operation requires a target selector'
+      )
       return html
     }
 
@@ -358,6 +394,7 @@ export class HTMLParser {
     const sourcePattern = this.buildSelectorPattern(selector)
     const sourceMatch = sourcePattern.exec(html)
 
+    // Null safety guard
     if (!sourceMatch) {
       this.logger?.warn(
         '[ABSmartly MC] Source element not found for move:',
@@ -375,17 +412,15 @@ export class HTMLParser {
     const targetPattern = this.buildSelectorPattern(target, true)
 
     return html.replace(targetPattern, (match, openTag, content, closeTag) => {
-      switch (position) {
-        case 'before':
-          return `${elementToMove}${match}`
-        case 'after':
-          return `${match}${elementToMove}`
-        case 'prepend':
-          return `${openTag}${elementToMove}${content}${closeTag}`
-        case 'append':
-        default:
-          return `${openTag}${content}${elementToMove}${closeTag}`
-      }
+      // Use shared utility for position insertion
+      return insertAtPosition(
+        position as InsertPosition,
+        elementToMove,
+        match,
+        openTag,
+        content,
+        closeTag
+      )
     })
   }
 
