@@ -264,7 +264,7 @@ export class ContextManager {
     const experiments: ExperimentData[] = []
 
     try {
-      const contextData = context.getData()
+      const contextData = context.data()
 
       if (!contextData || !contextData.experiments) {
         this.logger.warn('No experiments found in context data')
@@ -446,7 +446,7 @@ export class ContextManager {
       const context = await this.createContext(userId, overrides, attributes)
 
       try {
-        const contextData = context.getContextData()
+        const contextData = context.data()
         const ttl = this.getContextCacheTTL()
         const cacheEntry: CachedContextEntry = {
           data: contextData,

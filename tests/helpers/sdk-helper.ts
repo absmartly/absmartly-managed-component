@@ -3,9 +3,6 @@ import type { EventLogger } from '@absmartly/javascript-sdk/types/sdk'
 import type { ContextData } from '@absmartly/javascript-sdk/types/context'
 // @ts-expect-error - lib/provider doesn't have type definitions
 import { ContextDataProvider } from '@absmartly/javascript-sdk/lib/provider'
-// @ts-expect-error - lib/publisher doesn't have type definitions
-import { ContextPublisher } from '@absmartly/javascript-sdk/lib/publisher'
-import type { PublishParams } from '@absmartly/javascript-sdk/types/publisher'
 import type { ABSmartlyContext } from '../../src/types'
 
 export type { EventLogger }
@@ -28,11 +25,6 @@ class MockContextDataProvider extends ContextDataProvider {
   }
 }
 
-class MockContextPublisher extends ContextPublisher {
-  async publish(request: PublishParams): Promise<void> {
-    return Promise.resolve()
-  }
-}
 
 export function createTestSDK(
   eventLogger?: EventLogger,
@@ -40,7 +32,6 @@ export function createTestSDK(
   delay = 0
 ): typeof SDK.prototype {
   const provider = new MockContextDataProvider(mockData, delay)
-  const publisher = new MockContextPublisher()
 
   return new SDK({
     endpoint: 'https://test.absmartly.io',
@@ -51,7 +42,6 @@ export function createTestSDK(
     timeout: 1000,
     eventLogger,
     provider,
-    publisher,
   })
 }
 

@@ -3,16 +3,21 @@ import { Manager, MCEvent, Client } from '@managed-components/types'
 import { setupZarazMode } from '../../../src/zaraz/setup'
 import { ABSmartlySettings } from '../../../src/types'
 import { ContextManager } from '../../../src/core/context-manager'
+import { createTestSDK, createTestContext } from '../../helpers/sdk-helper'
+import { basicExperimentData } from '../../fixtures/absmartly-context-data'
+import type { EventLogger } from '@absmartly/javascript-sdk/types/sdk'
+import type { EventName, EventLoggerData } from '@absmartly/javascript-sdk/types/sdk'
 
-// Mock ABSmartly SDK
-vi.mock('@absmartly/javascript-sdk', () => ({
-  default: vi.fn(() => ({
-    createContext: vi.fn(),
-    createContextWith: vi.fn(),
-  })),
-}))
+// Captured events for verification
+interface CapturedEvent {
+  eventName: EventName
+  data?: EventLoggerData
+}
 
-// Mock all core modules
+let capturedEvents: CapturedEvent[]
+let eventLogger: EventLogger
+
+// Mock all core modules (appropriate for integration test)
 vi.mock('../../../src/core/context-manager', () => ({
   ContextManager: vi.fn().mockImplementation(() => ({
     createContext: vi.fn(),
@@ -95,8 +100,14 @@ describe('ExperimentView Tracking', () => {
     detachEvent: vi.fn(),
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     trackListeners = []
+    capturedEvents = []
+
+    // Create eventLogger to capture all SDK events
+    eventLogger = (context, eventName, data) => {
+      capturedEvents.push({ eventName, data })
+    }
 
     manager = {
       addEventListener: vi.fn((eventType: string, listener: any) => {
@@ -113,19 +124,17 @@ describe('ExperimentView Tracking', () => {
       get: vi.fn(),
     } as unknown as Manager
 
-    mockContext = {
-      treatment: vi.fn((experimentName: string) => 1),
-      variable: vi.fn(),
-      track: vi.fn(),
-      publish: vi.fn(),
-      setOverride: vi.fn(),
-      setOverrides: vi.fn(),
-      setAttribute: vi.fn(),
-      setAttributes: vi.fn(),
-      finalize: vi.fn(),
-      data: vi.fn(),
-      experiments: vi.fn(() => []),
-    }
+    // Create real SDK context using eventLogger
+    const sdk = createTestSDK(eventLogger, basicExperimentData)
+    mockContext = createTestContext(sdk, 'test-user-123', basicExperimentData)
+    await mockContext.ready()
+
+    // Clear captured events from context creation
+
+    // Spy on real context methods to verify calls while still using real implementation
+    vi.spyOn(mockContext, 'treatment')
+    vi.spyOn(mockContext, 'publish')
+    capturedEvents = []
 
     mockContextManager = {
       createContext: vi.fn().mockResolvedValue(mockContext),
@@ -178,8 +187,11 @@ describe('ExperimentView Tracking', () => {
 
       await trackListeners[0](mockEvent)
 
-      // Verify treatment was called with the experiment name
-      expect(mockContext.treatment).toHaveBeenCalledWith(experimentName)
+      // Verify exposure event was captured for the experiment
+      const exposureEvents = capturedEvents.filter(e => e.eventName === 'exposure')
+      expect(exposureEvents.length).toBeGreaterThan(0)
+      const exp = exposureEvents.find((e: any) => e.data?.name === experimentName)
+      expect(exp).toBeDefined()
     })
 
     it('should publish context after ExperimentView tracking', async () => {
@@ -275,8 +287,9 @@ describe('ExperimentView Tracking', () => {
 
       await trackListeners[0](mockEvent)
 
-      // Verify treatment was NOT called
-      expect(mockContext.treatment).not.toHaveBeenCalled()
+      // Verify NO exposure events were captured (no experimentName provided)
+      const exposureEvents = capturedEvents.filter(e => e.eventName === 'exposure')
+      expect(exposureEvents.length).toBe(0)
       expect(mockContextManager.publishContext).not.toHaveBeenCalled()
     })
 
@@ -300,11 +313,16 @@ describe('ExperimentView Tracking', () => {
         await trackListeners[0](mockEvent)
       }
 
-      // Verify treatment was called for each experiment
-      expect(mockContext.treatment).toHaveBeenCalledTimes(3)
-      expect(mockContext.treatment).toHaveBeenCalledWith('exp-1')
-      expect(mockContext.treatment).toHaveBeenCalledWith('exp-2')
-      expect(mockContext.treatment).toHaveBeenCalledWith('exp-3')
+      // Verify exposure events were captured for each experiment
+      const exposureEvents = capturedEvents.filter(e => e.eventName === 'exposure')
+      expect(exposureEvents.length).toBe(3)
+
+      const exp1 = exposureEvents.find((e: any) => e.data?.name === 'exp-1')
+      const exp2 = exposureEvents.find((e: any) => e.data?.name === 'exp-2')
+      const exp3 = exposureEvents.find((e: any) => e.data?.name === 'exp-3')
+      expect(exp1).toBeDefined()
+      expect(exp2).toBeDefined()
+      expect(exp3).toBeDefined()
 
       // Verify context was published for each
       expect(mockContextManager.publishContext).toHaveBeenCalledTimes(3)
