@@ -146,9 +146,7 @@ describe('SDKInjector', () => {
         experiments: [],
       })
 
-      // Should pass null as serverData parameter
       expect(script).toContain(', null,')
-      // Should use createContext (not createContextWith) in the else branch
       expect(script).toContain('createContext({')
     })
 
@@ -182,7 +180,7 @@ describe('SDKInjector', () => {
       expect(script).not.toContain('window.__')
     })
 
-    it('should include SDK configuration', () => {
+    it('should include SDK configuration WITHOUT API key', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
         contextData: { experiments: [] },
@@ -191,7 +189,8 @@ describe('SDKInjector', () => {
       })
 
       expect(script).toContain('"endpoint":"https://api.absmartly.io/v1"')
-      expect(script).toContain('"apiKey":"test-key"')
+      expect(script).not.toContain('"apiKey"')
+      expect(script).not.toContain('"test-key"')
       expect(script).toContain('"environment":"production"')
       expect(script).toContain('"application":"test-app"')
     })
@@ -238,7 +237,7 @@ describe('SDKInjector', () => {
       expect(script).toContain('DOMContentLoaded')
     })
 
-    it('should pass config and unitId to ABsmartlyInit', () => {
+    it('should pass config and unitId to ABsmartlyInit WITHOUT API key', () => {
       settings.CLIENT_SDK_STRATEGY = 'bundled'
       injector = new SDKInjector({ settings, logger: createLogger(false) })
 
@@ -252,7 +251,8 @@ describe('SDKInjector', () => {
       expect(script).toContain('"test-user-123"')
       expect(script).toContain('{"exp1":1}')
       expect(script).toContain('endpoint')
-      expect(script).toContain('apiKey')
+      expect(script).not.toContain('apiKey')
+      expect(script).not.toContain('test-key')
     })
   })
 
@@ -361,7 +361,6 @@ describe('SDKInjector', () => {
       })
 
       expect(script).toMatch(/<script[\s\S]*<\/script>/)
-      // Should have 2 script tags: one for SDK src, one for init code
       expect(script.match(/<script/g)?.length).toBe(2)
       expect(script.match(/<\/script>/g)?.length).toBe(2)
     })
@@ -478,6 +477,70 @@ describe('SDKInjector', () => {
 
       expect(script).toContain('if (typeof ABsmartly !== \'undefined\' && ABsmartly.SDK)')
       expect(script).toContain('setTimeout(init, 50)')
+    })
+  })
+
+  describe('security', () => {
+    it('should NEVER expose API key in client-side script', () => {
+      const script = injector.generateInjectionScript({
+        unitId: 'test-user',
+        contextData: { experiments: [] },
+        overrides: {},
+        experiments: [],
+      })
+
+      expect(script).not.toContain('test-key')
+      expect(script).not.toContain('apiKey')
+      expect(script).not.toContain('ABSMARTLY_API_KEY')
+    })
+
+    it('should provide server SDK config separately for server-side use', () => {
+      const serverConfig = injector.getServerSDKConfig()
+
+      expect(serverConfig.apiKey).toBe('test-key')
+      expect(serverConfig.endpoint).toBe('https://api.absmartly.io/v1')
+      expect(serverConfig.environment).toBe('production')
+      expect(serverConfig.application).toBe('test-app')
+    })
+
+    it('should warn when PASS_SERVER_PAYLOAD is false for bundled strategy', () => {
+      settings.CLIENT_SDK_STRATEGY = 'bundled'
+      settings.PASS_SERVER_PAYLOAD = false
+      const logger = createLogger(false)
+      const warnSpy = { calls: [] as any[] }
+      logger.warn = (...args: any[]) => warnSpy.calls.push(args)
+
+      injector = new SDKInjector({ settings, logger })
+
+      injector.generateInjectionScript({
+        unitId: 'test-user',
+        contextData: { experiments: [] },
+        overrides: {},
+        experiments: [],
+      })
+
+      expect(warnSpy.calls.length).toBe(1)
+      expect(warnSpy.calls[0][0]).toContain('PASS_SERVER_PAYLOAD')
+    })
+
+    it('should warn when PASS_SERVER_PAYLOAD is false for CDN strategy', () => {
+      settings.CLIENT_SDK_STRATEGY = 'cdn'
+      settings.PASS_SERVER_PAYLOAD = false
+      const logger = createLogger(false)
+      const warnSpy = { calls: [] as any[] }
+      logger.warn = (...args: any[]) => warnSpy.calls.push(args)
+
+      injector = new SDKInjector({ settings, logger })
+
+      injector.generateInjectionScript({
+        unitId: 'test-user',
+        contextData: { experiments: [] },
+        overrides: {},
+        experiments: [],
+      })
+
+      expect(warnSpy.calls.length).toBe(1)
+      expect(warnSpy.calls[0][0]).toContain('better security')
     })
   })
 })

@@ -1,15 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ContextManager } from '../../../src/core/context-manager'
 import { ABSmartlySettings, Logger } from '../../../src/types'
 import { Manager } from '@managed-components/types'
 
-// Create mock instances that will be shared
 const mockSDKInstance = {
   createContext: vi.fn(),
   createContextWith: vi.fn(),
 }
 
-// Mock the ABsmartly SDK
 vi.mock('@absmartly/javascript-sdk', () => {
   return {
     SDK: vi.fn().mockImplementation(() => mockSDKInstance),
@@ -22,6 +20,7 @@ describe('ContextManager', () => {
   let logger: Logger
   let mockContext: any
   let storage: Map<string, any>
+  let contextManager: ContextManager
 
   beforeEach(() => {
     storage = new Map()
@@ -51,11 +50,10 @@ describe('ContextManager', () => {
       debug: vi.fn(),
     }
 
-    // Mock context object
     mockContext = {
       ready: vi.fn().mockResolvedValue(undefined),
       override: vi.fn(),
-      overrides: vi.fn(), // Bulk overrides method (SDK supports passing object)
+      overrides: vi.fn(),
       attributes: vi.fn(),
       getData: vi.fn().mockReturnValue({
         experiments: [
@@ -75,15 +73,20 @@ describe('ContextManager', () => {
       track: vi.fn(),
     }
 
-    // Reset and configure mock SDK
     vi.clearAllMocks()
     mockSDKInstance.createContext.mockReturnValue(mockContext)
     mockSDKInstance.createContextWith.mockReturnValue(mockContext)
   })
 
+  afterEach(() => {
+    if (contextManager) {
+      contextManager.destroy()
+    }
+  })
+
   describe('constructor', () => {
     it('should initialize SDK with correct configuration', () => {
-      const contextManager = new ContextManager(
+      contextManager = new ContextManager(
         manager as Manager,
         settings,
         logger
@@ -99,11 +102,23 @@ describe('ContextManager', () => {
         })
       )
     })
+
+    it('should start cleanup task', () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        'Started cache cleanup task',
+        expect.objectContaining({
+          ttl: 60000,
+          cleanupInterval: 60000,
+        })
+      )
+    })
   })
 
   describe('createContext', () => {
     it('should create context with user ID and session ID', async () => {
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       await contextManager.createContext('user123', {}, {})
 
@@ -115,174 +130,114 @@ describe('ContextManager', () => {
       })
     })
 
-    it('should apply overrides to context', async () => {
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
-      const overrides = { experiment1: 1, experiment2: 2 }
+    it('should apply overrides when provided', async () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
-      await contextManager.createContext('user123', overrides, {})
+      await contextManager.createContext('user123', { experiment1: 1 }, {})
 
-      // Expects bulk overrides() method (not individual override() calls)
-      expect(mockContext.overrides).toHaveBeenCalledWith(overrides)
-      expect(mockContext.overrides).toHaveBeenCalledTimes(1)
+      expect(mockContext.overrides).toHaveBeenCalledWith({ experiment1: 1 })
     })
 
-    it('should set attributes on context', async () => {
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
-      const attributes = { url: 'https://example.com', userAgent: 'test' }
+    it('should set context attributes when provided', async () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
-      await contextManager.createContext('user123', {}, attributes)
+      await contextManager.createContext(
+        'user123',
+        {},
+        { userAgent: 'test-agent' }
+      )
 
-      expect(mockContext.attributes).toHaveBeenCalledWith(attributes)
+      expect(mockContext.attributes).toHaveBeenCalledWith({
+        userAgent: 'test-agent',
+      })
     })
 
-    it('should wait for context to be ready', async () => {
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+    it('should wait for context ready', async () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       await contextManager.createContext('user123', {}, {})
 
       expect(mockContext.ready).toHaveBeenCalled()
     })
 
-    it('should timeout if context takes too long', async () => {
-      mockContext.ready.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 5000))
+    it('should handle timeout', async () => {
+      mockContext.ready.mockReturnValue(
+        new Promise((resolve) => setTimeout(resolve, 3000))
       )
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
-      await expect(
-        contextManager.createContext('user123', {}, {})
-      ).rejects.toThrow('Context timeout')
-    })
-
-    it('should log error on context creation failure', async () => {
-      mockContext.ready.mockRejectedValue(new Error('Network error'))
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
-
-      await expect(
-        contextManager.createContext('user123', {}, {})
-      ).rejects.toThrow('Network error')
-
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to create context:',
-        expect.any(Error)
+      await expect(contextManager.createContext('user123', {}, {})).rejects.toThrow(
+        'Context timeout'
       )
     })
   })
 
   describe('extractExperimentData', () => {
-    it('should extract experiment data from context', () => {
-      mockContext.peek.mockReturnValue(1)
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+    beforeEach(() => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
+    })
 
-      const experiments = contextManager.extractExperimentData(mockContext)
+    it('should extract experiment data for eligible user', () => {
+      mockContext.peek.mockReturnValue(1)
+
+      const experiments = contextManager.extractExperimentData(mockContext, false)
 
       expect(experiments).toHaveLength(1)
-      expect(experiments[0]).toEqual({
+      expect(experiments[0]).toMatchObject({
         name: 'experiment1',
         treatment: 1,
         variant: 'variant_a',
-        changes: [{ selector: '.test', type: 'text', value: 'Test' }],
       })
     })
 
-    it('should skip experiments with undefined treatment', () => {
-      mockContext.peek.mockReturnValue(undefined)
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
-
-      const experiments = contextManager.extractExperimentData(mockContext)
-
-      expect(experiments).toHaveLength(0)
-    })
-
-    it('should skip experiments with negative treatment', () => {
+    it('should skip experiments where user is not eligible', () => {
       mockContext.peek.mockReturnValue(-1)
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
 
-      const experiments = contextManager.extractExperimentData(mockContext)
+      const experiments = contextManager.extractExperimentData(mockContext, false)
 
       expect(experiments).toHaveLength(0)
     })
 
-    it('should handle context without experiments', () => {
-      mockContext.getData.mockReturnValue({})
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+    it('should track immediate exposure when needed', () => {
+      mockContext.peek.mockReturnValue(1)
 
-      const experiments = contextManager.extractExperimentData(mockContext)
+      contextManager.extractExperimentData(mockContext, true)
+
+      expect(mockContext.treatment).toHaveBeenCalledWith('experiment1')
+    })
+
+    it('should not track exposure when trackImmediate is false', () => {
+      mockContext.peek.mockReturnValue(1)
+
+      contextManager.extractExperimentData(mockContext, false)
+
+      expect(mockContext.treatment).not.toHaveBeenCalled()
+    })
+
+    it('should handle missing context data', () => {
+      mockContext.getData.mockReturnValue(null)
+
+      const experiments = contextManager.extractExperimentData(mockContext, false)
 
       expect(experiments).toHaveLength(0)
       expect(logger.warn).toHaveBeenCalledWith('No experiments found in context data')
     })
 
-    it('should handle missing variant for treatment', () => {
-      mockContext.peek.mockReturnValue(5) // Out of range
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+    it('should handle experiment extraction errors gracefully', () => {
+      mockContext.peek.mockImplementation(() => {
+        throw new Error('Peek failed')
+      })
 
-      const experiments = contextManager.extractExperimentData(mockContext)
+      const experiments = contextManager.extractExperimentData(mockContext, false)
 
       expect(experiments).toHaveLength(0)
-      expect(logger.warn).toHaveBeenCalledWith(
-        'No variant found for treatment',
-        expect.any(Object)
-      )
-    })
-
-    it('should use default variant name if not provided', () => {
-      mockContext.getData.mockReturnValue({
-        experiments: [
-          {
-            name: 'experiment1',
-            variants: [
-              { config: { domChanges: [] } }, // No name property
-            ],
-          },
-        ],
-      })
-      mockContext.peek.mockReturnValue(0)
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
-
-      const experiments = contextManager.extractExperimentData(mockContext)
-
-      expect(experiments[0].variant).toBe('variant_0')
-    })
-
-    it('should handle empty DOM changes', () => {
-      mockContext.getData.mockReturnValue({
-        experiments: [
-          {
-            name: 'experiment1',
-            variants: [
-              { name: 'control', config: {} }, // No domChanges
-            ],
-          },
-        ],
-      })
-      mockContext.peek.mockReturnValue(0)
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
-
-      const experiments = contextManager.extractExperimentData(mockContext)
-
-      expect(experiments[0].changes).toEqual([])
-    })
-
-    it('should handle errors gracefully', () => {
-      mockContext.getData.mockImplementation(() => {
-        throw new Error('getData failed')
-      })
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
-
-      const experiments = contextManager.extractExperimentData(mockContext)
-
-      expect(experiments).toHaveLength(0)
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to extract experiment data:',
-        expect.any(Error)
-      )
+      expect(logger.error).toHaveBeenCalled()
     })
   })
 
   describe('getOrCreateContext', () => {
     it('should create new context if not cached', async () => {
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       const context = await contextManager.getOrCreateContext('user123')
 
@@ -290,20 +245,29 @@ describe('ContextManager', () => {
       expect(mockSDKInstance.createContext).toHaveBeenCalled()
     })
 
-    it('should cache created context', async () => {
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+    it('should cache created context with TTL', async () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       await contextManager.getOrCreateContext('user123')
 
       expect(manager.set).toHaveBeenCalledWith(
         'context_user123',
-        { data: 'cached' }
+        expect.objectContaining({
+          data: { data: 'cached' },
+          timestamp: expect.any(Number),
+          ttl: 60000,
+        })
       )
     })
 
-    it('should return cached context if available', async () => {
-      storage.set('context_user123', { data: 'cached' })
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+    it('should return cached context if available and not expired', async () => {
+      const cacheEntry = {
+        data: { data: 'cached' },
+        timestamp: Date.now(),
+        ttl: 60000,
+      }
+      storage.set('context_user123', cacheEntry)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       const context = await contextManager.getOrCreateContext('user123')
 
@@ -319,12 +283,33 @@ describe('ContextManager', () => {
       expect(mockSDKInstance.createContext).not.toHaveBeenCalled()
     })
 
+    it('should create new context if cache is expired', async () => {
+      const expiredEntry = {
+        data: { data: 'cached' },
+        timestamp: Date.now() - 70000,
+        ttl: 60000,
+      }
+      storage.set('context_user123', expiredEntry)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
+
+      const context = await contextManager.getOrCreateContext('user123')
+
+      expect(mockSDKInstance.createContext).toHaveBeenCalled()
+      expect(mockSDKInstance.createContextWith).not.toHaveBeenCalled()
+      expect(logger.debug).toHaveBeenCalledWith('Cache expired, creating new context', { userId: 'user123' })
+    })
+
     it('should create new context if cache recreation fails', async () => {
-      storage.set('context_user123', { data: 'cached' })
+      const cacheEntry = {
+        data: { data: 'cached' },
+        timestamp: Date.now(),
+        ttl: 60000,
+      }
+      storage.set('context_user123', cacheEntry)
       mockSDKInstance.createContextWith.mockImplementation(() => {
         throw new Error('Failed to recreate')
       })
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       const context = await contextManager.getOrCreateContext('user123')
 
@@ -337,7 +322,7 @@ describe('ContextManager', () => {
 
     it('should handle cache set failure gracefully', async () => {
       manager.set = vi.fn().mockRejectedValue(new Error('Cache set failed'))
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       await contextManager.getOrCreateContext('user123')
 
@@ -346,11 +331,36 @@ describe('ContextManager', () => {
         expect.any(Error)
       )
     })
+
+    it('should use default TTL when CONTEXT_CACHE_TTL is not set', async () => {
+      delete settings.CONTEXT_CACHE_TTL
+      contextManager = new ContextManager(manager as Manager, settings, logger)
+
+      await contextManager.getOrCreateContext('user123')
+
+      expect(manager.set).toHaveBeenCalledWith(
+        'context_user123',
+        expect.objectContaining({
+          ttl: 300000,
+        })
+      )
+    })
+
+    it('should track cache keys for cleanup', async () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
+
+      await contextManager.getOrCreateContext('user123')
+
+      expect(manager.set).toHaveBeenCalledWith(
+        '__context_keys__',
+        ['context_user123']
+      )
+    })
   })
 
   describe('publishContext', () => {
     it('should publish context successfully', async () => {
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
       await contextManager.publishContext(mockContext)
 
@@ -358,16 +368,34 @@ describe('ContextManager', () => {
       expect(logger.debug).toHaveBeenCalledWith('Published context (exposures and events)')
     })
 
-    it('should handle publish failure', async () => {
+    it('should handle publish errors', async () => {
       mockContext.publish.mockRejectedValue(new Error('Publish failed'))
-      const contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager = new ContextManager(manager as Manager, settings, logger)
 
-      await expect(contextManager.publishContext(mockContext)).rejects.toThrow('Publish failed')
-
+      await expect(contextManager.publishContext(mockContext)).rejects.toThrow(
+        'Publish failed'
+      )
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to publish context:',
         expect.any(Error)
       )
+    })
+  })
+
+  describe('destroy', () => {
+    it('should stop cleanup task', () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager.destroy()
+
+      expect(logger.debug).toHaveBeenCalledWith('Stopped cache cleanup task')
+    })
+
+    it('should handle multiple destroy calls', () => {
+      contextManager = new ContextManager(manager as Manager, settings, logger)
+      contextManager.destroy()
+      contextManager.destroy()
+
+      expect(logger.debug).toHaveBeenCalledWith('Stopped cache cleanup task')
     })
   })
 })

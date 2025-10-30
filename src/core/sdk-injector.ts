@@ -19,6 +19,14 @@ export interface SDKInjectionPayload {
   experiments: ExperimentData[]
 }
 
+export interface ClientSDKConfig {
+  endpoint: string
+  environment: string
+  application: string
+  retries?: number
+  timeout?: number
+}
+
 export class SDKInjector {
   constructor(private options: SDKInjectorOptions) {}
 
@@ -29,7 +37,7 @@ export class SDKInjector {
       return ''
     }
 
-    const config = this.buildSDKConfig()
+    const config = this.buildClientSDKConfig()
     const sdkUrl = this.getSDKUrl()
 
     if (settings.CLIENT_SDK_STRATEGY === 'bundled') {
@@ -37,6 +45,18 @@ export class SDKInjector {
     }
 
     return this.generateExternalSDKScript(sdkUrl, config, payload)
+  }
+
+  private buildClientSDKConfig(): ClientSDKConfig {
+    const { settings } = this.options
+
+    return {
+      endpoint: settings.ABSMARTLY_ENDPOINT,
+      environment: settings.ABSMARTLY_ENVIRONMENT,
+      application: settings.ABSMARTLY_APPLICATION,
+      retries: 1,
+      timeout: 2000,
+    }
   }
 
   private buildSDKConfig(): SDKConfig {
@@ -50,6 +70,10 @@ export class SDKInjector {
       retries: 1,
       timeout: 2000,
     }
+  }
+
+  getServerSDKConfig(): SDKConfig {
+    return this.buildSDKConfig()
   }
 
   private getSDKUrl(): string {
@@ -75,7 +99,7 @@ export class SDKInjector {
 
   private generateExternalSDKScript(
     sdkUrl: string,
-    config: SDKConfig,
+    config: ClientSDKConfig,
     payload: SDKInjectionPayload
   ): string {
     const serverData = this.options.settings.PASS_SERVER_PAYLOAD
@@ -85,7 +109,6 @@ export class SDKInjector {
     const overrides = JSON.stringify(payload.overrides || {})
     const unitId = JSON.stringify(payload.unitId)
 
-    // For zaraz-bundle, use the bundled init helper
     if (this.options.settings.CLIENT_SDK_STRATEGY === 'zaraz-bundle') {
       return `
 <script src="${sdkUrl}" async></script>
@@ -113,7 +136,13 @@ export class SDKInjector {
       `.trim()
     }
 
-    // For external CDN or custom URL, use dynamic script loading
+    if (!this.options.settings.PASS_SERVER_PAYLOAD) {
+      this.options.logger.warn(
+        'Client SDK initialized without server payload. API calls will be made from the browser. ' +
+        'For better security, enable PASS_SERVER_PAYLOAD to avoid exposing API endpoints to clients.'
+      )
+    }
+
     return `
 <script src="${sdkUrl}" async></script>
 <script>
@@ -168,7 +197,7 @@ export class SDKInjector {
   }
 
   private generateBundledScript(
-    config: SDKConfig,
+    config: ClientSDKConfig,
     payload: SDKInjectionPayload
   ): string {
     const serverData = this.options.settings.PASS_SERVER_PAYLOAD
@@ -177,6 +206,13 @@ export class SDKInjector {
 
     const overrides = JSON.stringify(payload.overrides || {})
     const unitId = JSON.stringify(payload.unitId)
+
+    if (!this.options.settings.PASS_SERVER_PAYLOAD) {
+      this.options.logger.warn(
+        'Client SDK initialized without server payload. API calls will be made from the browser. ' +
+        'For better security, enable PASS_SERVER_PAYLOAD to avoid exposing API endpoints to clients.'
+      )
+    }
 
     return `
 <script src="/_zaraz/absmartly-sdk.js" async></script>

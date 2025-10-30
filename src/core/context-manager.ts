@@ -12,8 +12,41 @@ import {
 } from '../types'
 import { generateSessionId } from '../utils/serializer'
 
+interface CachedContextEntry {
+  data: any
+  timestamp: number
+  ttl: number
+}
+
+interface PublishQueueEntry {
+  context: ABSmartlyContext
+  resolve: () => void
+  reject: (error: any) => void
+}
+
+enum CircuitBreakerState {
+  CLOSED = 'CLOSED',
+  OPEN = 'OPEN',
+  HALF_OPEN = 'HALF_OPEN',
+}
+
+interface CircuitBreakerConfig {
+  failureThreshold: number
+  resetTimeout: number
+}
+
 export class ContextManager {
   private sdk: typeof SDK.prototype
+  private cleanupInterval: NodeJS.Timeout | null = null
+  private publishQueue: PublishQueueEntry[] = []
+  private isPublishing = false
+  private circuitBreakerState: CircuitBreakerState = CircuitBreakerState.CLOSED
+  private consecutiveFailures = 0
+  private circuitBreakerResetTimer: NodeJS.Timeout | null = null
+  private circuitBreakerConfig: CircuitBreakerConfig = {
+    failureThreshold: 3,
+    resetTimeout: 60000,
+  }
 
   constructor(
     private manager: Manager,
@@ -21,6 +54,7 @@ export class ContextManager {
     private logger: Logger
   ) {
     this.sdk = this.initializeSDK()
+    this.startCleanupTask()
   }
 
   private initializeSDK(): typeof SDK.prototype {
@@ -42,15 +76,144 @@ export class ContextManager {
     return sdk
   }
 
+  private startCleanupTask(): void {
+    const ttl = this.getContextCacheTTL()
+    const cleanupInterval = Math.max(ttl, 60000)
+
+    this.cleanupInterval = setInterval(async () => {
+      await this.cleanupExpiredCaches()
+    }, cleanupInterval)
+
+    this.logger.debug('Started cache cleanup task', {
+      ttl,
+      cleanupInterval,
+    })
+  }
+
+  private async cleanupExpiredCaches(): Promise<void> {
+    try {
+      const keys = await this.manager.get('__context_keys__') || []
+      if (!Array.isArray(keys) || keys.length === 0) return
+
+      const now = Date.now()
+      const validKeys: string[] = []
+
+      for (const key of keys) {
+        const entry = await this.manager.get(key)
+        if (this.isValidCacheEntry(entry)) {
+          const expirationTime = entry.timestamp + entry.ttl
+          if (now >= expirationTime) {
+            await this.manager.set(key, null)
+            this.logger.debug('Cleaned up expired cache entry', { key })
+          } else {
+            validKeys.push(key)
+          }
+        }
+      }
+
+      await this.manager.set('__context_keys__', validKeys)
+      this.logger.debug('Cleanup complete', {
+        removed: keys.length - validKeys.length,
+        remaining: validKeys.length,
+      })
+    } catch (error) {
+      this.logger.error('Failed to cleanup expired caches:', error)
+    }
+  }
+
+  private isValidCacheEntry(entry: any): entry is CachedContextEntry {
+    return (
+      entry &&
+      typeof entry === 'object' &&
+      'data' in entry &&
+      'timestamp' in entry &&
+      'ttl' in entry &&
+      typeof entry.timestamp === 'number' &&
+      typeof entry.ttl === 'number'
+    )
+  }
+
+  private getContextCacheTTL(): number {
+    const ttl = this.settings.CONTEXT_CACHE_TTL
+    if (ttl && ttl > 0) {
+      return ttl * 1000
+    }
+    return 300000
+  }
+
+  private recordSuccess(): void {
+    if (this.circuitBreakerState === CircuitBreakerState.HALF_OPEN) {
+      this.logger.info('Circuit breaker test succeeded, closing circuit')
+      this.circuitBreakerState = CircuitBreakerState.CLOSED
+    }
+    this.consecutiveFailures = 0
+  }
+
+  private recordFailure(): void {
+    this.consecutiveFailures++
+    this.logger.warn('SDK call failed', {
+      consecutiveFailures: this.consecutiveFailures,
+      threshold: this.circuitBreakerConfig.failureThreshold,
+    })
+
+    if (
+      this.consecutiveFailures >= this.circuitBreakerConfig.failureThreshold &&
+      this.circuitBreakerState === CircuitBreakerState.CLOSED
+    ) {
+      this.openCircuit()
+    }
+  }
+
+  private openCircuit(): void {
+    this.circuitBreakerState = CircuitBreakerState.OPEN
+    this.logger.error('Circuit breaker OPEN - falling back to original content', {
+      consecutiveFailures: this.consecutiveFailures,
+    })
+
+    if (this.circuitBreakerResetTimer) {
+      clearTimeout(this.circuitBreakerResetTimer)
+    }
+
+    this.circuitBreakerResetTimer = setTimeout(() => {
+      this.circuitBreakerState = CircuitBreakerState.HALF_OPEN
+      this.logger.info('Circuit breaker HALF_OPEN - testing SDK availability')
+    }, this.circuitBreakerConfig.resetTimeout)
+  }
+
+  private isCircuitOpen(): boolean {
+    return this.circuitBreakerState === CircuitBreakerState.OPEN
+  }
+
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+      this.logger.debug('Stopped cache cleanup task')
+    }
+
+    if (this.circuitBreakerResetTimer) {
+      clearTimeout(this.circuitBreakerResetTimer)
+      this.circuitBreakerResetTimer = null
+    }
+  }
+
   async createContext(
     userId: string,
     overrides: OverridesMap,
     attributes: ContextAttributes
   ): Promise<ABSmartlyContext> {
+    if (this.isCircuitOpen()) {
+      this.logger.warn('Circuit breaker is OPEN, skipping SDK call', {
+        userId,
+      })
+      throw new Error('Circuit breaker is open - ABSmartly SDK unavailable')
+    }
+
     this.logger.debug('Creating ABsmartly context', {
       userId,
       overrides,
       attributes,
+      circuitState: this.circuitBreakerState,
     })
 
     const context = this.sdk.createContext({
@@ -60,19 +223,16 @@ export class ContextManager {
       },
     })
 
-    // Apply overrides (QA mode)
     if (Object.keys(overrides).length > 0) {
       context.overrides(overrides)
       this.logger.debug('Applied overrides', { overrides })
     }
 
-    // Set context attributes for targeting
     if (Object.keys(attributes).length > 0) {
       context.attributes(attributes)
       this.logger.debug('Set context attributes', attributes)
     }
 
-    // Wait for context to be ready (fetch experiment data)
     try {
       await Promise.race([
         context.ready(),
@@ -84,8 +244,10 @@ export class ContextManager {
         ),
       ])
 
+      this.recordSuccess()
       this.logger.debug('ABsmartly context ready')
     } catch (error) {
+      this.recordFailure()
       this.logger.error('Failed to create context:', error)
       throw error
     }
@@ -109,11 +271,10 @@ export class ContextManager {
 
       for (const experiment of contextData.experiments) {
         try {
-          // Use peek() to get treatment without tracking exposure yet
           const treatment = context.peek(experiment.name)
 
           if (treatment === undefined || treatment < 0) {
-            continue // User not eligible for this experiment
+            continue
           }
 
           const variant = experiment.variants
@@ -130,15 +291,12 @@ export class ContextManager {
 
           const changes = variant.config?.domChanges || []
 
-          // Check if this experiment needs immediate exposure tracking
-          // Cross-variant logic: Check ALL variants, not just current variant
           const needsImmediateTracking = this.shouldTrackImmediately(
             experiment,
             changes
           )
 
           if (trackImmediate && needsImmediateTracking) {
-            // Track exposure immediately (this is the correct SDK call!)
             context.treatment(experiment.name)
             this.logger.debug('Tracked immediate exposure', {
               experiment: experiment.name,
@@ -177,18 +335,13 @@ export class ContextManager {
     experiment: ABSmartlyExperiment,
     _currentVariantChanges: DOMChange[]
   ): boolean {
-    // Check if ANY variant has immediate triggers (cross-variant tracking)
-    // This prevents Sample Ratio Mismatch (SRM)
-
     if (!experiment.variants || experiment.variants.length === 0) {
-      return true // No variants = immediate tracking
+      return true
     }
 
-    // Check all variants, not just the current one
     for (const variant of experiment.variants) {
       const changes = variant.config?.domChanges || []
 
-      // If any change has trigger_on_view explicitly false, or undefined (default immediate)
       const hasImmediateTrigger = changes.some(
         (change: DOMChange) =>
           change.trigger_on_view === false ||
@@ -196,11 +349,10 @@ export class ContextManager {
       )
 
       if (hasImmediateTrigger) {
-        return true // At least one variant has immediate trigger
+        return true
       }
     }
 
-    // All variants only have trigger_on_view: true
     return false
   }
 
@@ -209,58 +361,126 @@ export class ContextManager {
     overrides: OverridesMap = {},
     attributes: ContextAttributes = {}
   ): Promise<ABSmartlyContext> {
-    // Try to get cached context
     const cacheKey = `context_${userId}`
     const cached = await this.manager.get(cacheKey)
 
-    if (cached) {
-      this.logger.debug('Using cached context', { userId })
-      try {
-        // Recreate context from cached data
-        // createContextWith requires: params, data, options
-        return this.sdk.createContextWith(
-          {
-            units: {
-              user_id: userId,
-              session_id: generateSessionId(userId),
+    if (cached && this.isValidCacheEntry(cached)) {
+      const now = Date.now()
+      const expirationTime = cached.timestamp + cached.ttl
+
+      if (now < expirationTime) {
+        this.logger.debug('Using cached context', {
+          userId,
+          age: Math.round((now - cached.timestamp) / 1000),
+          ttl: Math.round(cached.ttl / 1000),
+        })
+
+        try {
+          return this.sdk.createContextWith(
+            {
+              units: {
+                user_id: userId,
+                session_id: generateSessionId(userId),
+              },
             },
-          },
-          cached
-        )
-      } catch (error) {
-        this.logger.warn(
-          'Failed to recreate context from cache, creating new',
-          error
-        )
+            cached.data
+          )
+        } catch (error) {
+          this.logger.warn(
+            'Failed to recreate context from cache, creating new',
+            error
+          )
+        }
+      } else {
+        this.logger.debug('Cache expired, creating new context', { userId })
       }
     }
 
-    // Create new context
-    const context = await this.createContext(userId, overrides, attributes)
-
-    // Cache context data
     try {
-      const contextData = context.getContextData()
-      // manager.set only takes key and value (no options)
-      await this.manager.set(cacheKey, contextData)
-      this.logger.debug('Cached context', {
-        userId,
-        ttl: this.settings.CONTEXT_CACHE_TTL,
-      })
-    } catch (error) {
-      this.logger.error('Failed to cache context:', error)
-    }
+      const context = await this.createContext(userId, overrides, attributes)
 
+      try {
+        const contextData = context.getContextData()
+        const ttl = this.getContextCacheTTL()
+        const cacheEntry: CachedContextEntry = {
+          data: contextData,
+          timestamp: Date.now(),
+          ttl,
+        }
+
+        await this.manager.set(cacheKey, cacheEntry)
+
+        const keys = await this.manager.get('__context_keys__') || []
+        if (!keys.includes(cacheKey)) {
+          keys.push(cacheKey)
+          await this.manager.set('__context_keys__', keys)
+        }
+
+        this.logger.debug('Cached context', {
+          userId,
+          ttl: Math.round(ttl / 1000),
+        })
+      } catch (error) {
+        this.logger.error('Failed to cache context:', error)
+      }
+
+      return context
+    } catch (error) {
+      if (this.isCircuitOpen()) {
+        this.logger.warn('Returning fallback context due to circuit breaker', {
+          userId,
+        })
+        return this.createFallbackContext(userId)
+      }
+      throw error
+    }
+  }
+
+  private createFallbackContext(userId: string): ABSmartlyContext {
+    this.logger.info('Creating fallback context (no experiments)', { userId })
+    const context = this.sdk.createContext({
+      units: {
+        user_id: userId,
+        session_id: generateSessionId(userId),
+      },
+    })
     return context
   }
 
   async publishContext(context: ABSmartlyContext): Promise<void> {
-    try {
-      await context.publish()
-      this.logger.debug('Published context (exposures and events)')
-    } catch (error) {
-      this.logger.error('Failed to publish context:', error)
-      throw error
+    return new Promise((resolve, reject) => {
+      this.publishQueue.push({ context, resolve, reject })
+      this.logger.debug('Queued context for publishing', {
+        queueLength: this.publishQueue.length,
+      })
+      this.processPublishQueue()
+    })
+  }
+
+  private async processPublishQueue(): Promise<void> {
+    if (this.isPublishing || this.publishQueue.length === 0) {
+      return
     }
+
+    this.isPublishing = true
+
+    while (this.publishQueue.length > 0) {
+      const entry = this.publishQueue.shift()
+      if (!entry) break
+
+      try {
+        this.logger.debug('Publishing context', {
+          remaining: this.publishQueue.length,
+        })
+        await entry.context.publish()
+        this.logger.debug('Published context (exposures and events)')
+        entry.resolve()
+      } catch (error) {
+        this.logger.error('Failed to publish context:', error)
+        entry.reject(error)
+      }
+    }
+
+    this.isPublishing = false
   }
 }
