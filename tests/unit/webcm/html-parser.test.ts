@@ -107,7 +107,7 @@ describe('HTMLParser', () => {
       expect(result).not.toContain('href="/old"')
     })
 
-    it('should remove attribute when value is null', () => {
+    it('should remove attribute when value is undefined', () => {
       const html = '<button disabled="disabled">Click</button>'
       const parser = new HTMLParser(html)
 
@@ -116,7 +116,7 @@ describe('HTMLParser', () => {
           selector: 'button',
           type: 'attribute',
           name: 'disabled',
-          value: null,
+          value: undefined,
         },
       ])
 

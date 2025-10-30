@@ -119,7 +119,22 @@ describe('SDKInjector', () => {
     it('should pass server payload when PASS_SERVER_PAYLOAD is true', () => {
       const contextData = {
         experiments: [
-          { id: 1, name: 'test-exp', variants: [] },
+          {
+            id: 1,
+            name: 'test-exp',
+            unitType: 'user_id',
+            iteration: 1,
+            seedHi: 0,
+            seedLo: 0,
+            split: [0.5, 0.5],
+            trafficSeedHi: 0,
+            trafficSeedLo: 0,
+            trafficSplit: [1],
+            fullOnVariant: 0,
+            applications: [{ name: 'test-app' }],
+            variants: [],
+            audienceStrict: false,
+          },
         ],
       }
 
