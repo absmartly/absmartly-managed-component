@@ -13,7 +13,7 @@ import {
 import { generateSessionId } from '../utils/serializer'
 
 interface CachedContextEntry {
-  data: any
+  data: unknown
   timestamp: number
   ttl: number
 }
@@ -21,7 +21,7 @@ interface CachedContextEntry {
 interface PublishQueueEntry {
   context: ABSmartlyContext
   resolve: () => void
-  reject: (error: any) => void
+  reject: (error: Error) => void
 }
 
 enum CircuitBreakerState {
@@ -37,6 +37,7 @@ interface CircuitBreakerConfig {
 
 export class ContextManager {
   private sdk: typeof SDK.prototype
+  private contextCache = new Map<string, CachedContextEntry>()
   private cleanupInterval: NodeJS.Timeout | null = null
   private publishQueue: PublishQueueEntry[] = []
   private isPublishing = false
@@ -92,44 +93,37 @@ export class ContextManager {
 
   private async cleanupExpiredCaches(): Promise<void> {
     try {
-      const keys = await this.manager.get('__context_keys__') || []
-      if (!Array.isArray(keys) || keys.length === 0) return
-
       const now = Date.now()
-      const validKeys: string[] = []
+      let removedCount = 0
 
-      for (const key of keys) {
-        const entry = await this.manager.get(key)
-        if (this.isValidCacheEntry(entry)) {
-          const expirationTime = entry.timestamp + entry.ttl
-          if (now >= expirationTime) {
-            await this.manager.set(key, null)
-            this.logger.debug('Cleaned up expired cache entry', { key })
-          } else {
-            validKeys.push(key)
-          }
+      for (const [key, entry] of this.contextCache.entries()) {
+        const expirationTime = entry.timestamp + entry.ttl
+        if (now >= expirationTime) {
+          this.contextCache.delete(key)
+          await this.manager.set(key, null)
+          removedCount++
+          this.logger.debug('Cleaned up expired cache entry', { key })
         }
       }
 
-      await this.manager.set('__context_keys__', validKeys)
       this.logger.debug('Cleanup complete', {
-        removed: keys.length - validKeys.length,
-        remaining: validKeys.length,
+        removed: removedCount,
+        remaining: this.contextCache.size,
       })
     } catch (error) {
       this.logger.error('Failed to cleanup expired caches:', error)
     }
   }
 
-  private isValidCacheEntry(entry: any): entry is CachedContextEntry {
+  private isValidCacheEntry(entry: unknown): entry is CachedContextEntry {
     return (
-      entry &&
+      !!entry &&
       typeof entry === 'object' &&
       'data' in entry &&
       'timestamp' in entry &&
       'ttl' in entry &&
-      typeof entry.timestamp === 'number' &&
-      typeof entry.ttl === 'number'
+      typeof (entry as any).timestamp === 'number' &&
+      typeof (entry as any).ttl === 'number'
     )
   }
 
@@ -166,9 +160,12 @@ export class ContextManager {
 
   private openCircuit(): void {
     this.circuitBreakerState = CircuitBreakerState.OPEN
-    this.logger.error('Circuit breaker OPEN - falling back to original content', {
-      consecutiveFailures: this.consecutiveFailures,
-    })
+    this.logger.error(
+      'Circuit breaker OPEN - falling back to original content',
+      {
+        consecutiveFailures: this.consecutiveFailures,
+      }
+    )
 
     if (this.circuitBreakerResetTimer) {
       clearTimeout(this.circuitBreakerResetTimer)
@@ -195,6 +192,8 @@ export class ContextManager {
       clearTimeout(this.circuitBreakerResetTimer)
       this.circuitBreakerResetTimer = null
     }
+
+    this.contextCache.clear()
   }
 
   async createContext(
@@ -221,10 +220,12 @@ export class ContextManager {
         user_id: userId,
         session_id: generateSessionId(userId),
       },
-    })
+    }) as unknown as ABSmartlyContext
 
     if (Object.keys(overrides).length > 0) {
-      context.overrides(overrides)
+      for (const [experimentName, variant] of Object.entries(overrides)) {
+        context.override(experimentName, variant)
+      }
       this.logger.debug('Applied overrides', { overrides })
     }
 
@@ -252,7 +253,7 @@ export class ContextManager {
       throw error
     }
 
-    return context
+    return context as unknown as ABSmartlyContext
   }
 
   extractExperimentData(
@@ -362,9 +363,10 @@ export class ContextManager {
     attributes: ContextAttributes = {}
   ): Promise<ABSmartlyContext> {
     const cacheKey = `context_${userId}`
-    const cached = await this.manager.get(cacheKey)
 
-    if (cached && this.isValidCacheEntry(cached)) {
+    const cached = this.contextCache.get(cacheKey)
+
+    if (cached) {
       const now = Date.now()
       const expirationTime = cached.timestamp + cached.ttl
 
@@ -383,16 +385,18 @@ export class ContextManager {
                 session_id: generateSessionId(userId),
               },
             },
-            cached.data
-          )
+            cached.data as any
+          ) as unknown as ABSmartlyContext
         } catch (error) {
           this.logger.warn(
             'Failed to recreate context from cache, creating new',
             error
           )
+          this.contextCache.delete(cacheKey)
         }
       } else {
         this.logger.debug('Cache expired, creating new context', { userId })
+        this.contextCache.delete(cacheKey)
       }
     }
 
@@ -408,13 +412,8 @@ export class ContextManager {
           ttl,
         }
 
+        this.contextCache.set(cacheKey, cacheEntry)
         await this.manager.set(cacheKey, cacheEntry)
-
-        const keys = await this.manager.get('__context_keys__') || []
-        if (!keys.includes(cacheKey)) {
-          keys.push(cacheKey)
-          await this.manager.set('__context_keys__', keys)
-        }
 
         this.logger.debug('Cached context', {
           userId,
@@ -443,7 +442,7 @@ export class ContextManager {
         user_id: userId,
         session_id: generateSessionId(userId),
       },
-    })
+    }) as unknown as ABSmartlyContext
     return context
   }
 
@@ -477,7 +476,7 @@ export class ContextManager {
         entry.resolve()
       } catch (error) {
         this.logger.error('Failed to publish context:', error)
-        entry.reject(error)
+        entry.reject(error as Error)
       }
     }
 

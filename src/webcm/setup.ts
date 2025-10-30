@@ -5,10 +5,7 @@ import { ABSmartlyEndpointHandler } from './absmartly-endpoint-handler'
 import { HTMLProcessor } from '../core/html-processor'
 import { generateClientBundle } from '../shared/client-bundle-generator'
 import { createLogger } from '../utils/logger'
-
-interface FetchedRequest extends Response {
-  url: string
-}
+import { injectIntoHTML } from '../utils/html-injection'
 
 const setupInstances = new WeakMap<Manager, boolean>()
 
@@ -20,7 +17,9 @@ export function setupWebCMMode(
   logger.log('Initializing ABsmartly Managed Component - WebCM mode')
 
   if (setupInstances.has(manager)) {
-    logger.warn('WebCM mode already initialized for this manager, skipping duplicate setup')
+    logger.warn(
+      'WebCM mode already initialized for this manager, skipping duplicate setup'
+    )
     return () => {
       logger.debug('Cleanup called but already skipped duplicate setup')
     }
@@ -28,17 +27,13 @@ export function setupWebCMMode(
 
   setupInstances.set(manager, true)
 
-  const {
-    contextManager,
-    cookieHandler,
-    overridesHandler,
-    eventTracker,
-    experimentViewHandler,
-    requestHandler,
-    eventHandlers,
-  } = createCoreManagers(manager, settings, logger)
+  const { requestHandler, eventHandlers } = createCoreManagers(
+    manager,
+    settings,
+    logger
+  )
 
-  const endpointHandler = new ABSmartlyEndpointHandler(settings, eventTracker, logger)
+  const endpointHandler = new ABSmartlyEndpointHandler(settings, logger)
 
   const requestListener = async (event: MCEvent) => {
     const isEndpointHandled = await endpointHandler.handleRequest(event)
@@ -50,7 +45,10 @@ export function setupWebCMMode(
     let shouldSkip = false
     for (const path of excludedPaths) {
       if (event.client.url.toString().includes(path)) {
-        logger.debug('URL excluded from manipulation', { url: event.client.url.toString(), path })
+        logger.debug('URL excluded from manipulation', {
+          url: event.client.url.toString(),
+          path,
+        })
         shouldSkip = true
         break
       }
@@ -71,6 +69,12 @@ export function setupWebCMMode(
     }
 
     try {
+      // Type guard: Check if fetchResult exists and is not boolean
+      if (!result.fetchResult || typeof result.fetchResult === 'boolean') {
+        logger.warn('Invalid fetchResult, skipping HTML processing')
+        return
+      }
+
       const html = await result.fetchResult.text()
 
       const contentType = result.fetchResult.headers?.get('content-type') || ''
@@ -95,13 +99,7 @@ ${JSON.stringify({ experiments: result.experimentData })}
 </script>
         `.trim()
 
-        if (processedHTML.includes('</head>')) {
-          processedHTML = processedHTML.replace('</head>', `${dataScript}</head>`)
-        } else if (processedHTML.includes('</body>')) {
-          processedHTML = processedHTML.replace('</body>', `${dataScript}</body>`)
-        } else {
-          processedHTML = processedHTML + dataScript
-        }
+        processedHTML = injectIntoHTML(processedHTML, dataScript)
       }
 
       if (settings.INJECT_CLIENT_BUNDLE !== false) {
@@ -109,16 +107,10 @@ ${JSON.stringify({ experiments: result.experimentData })}
           const bundle = generateClientBundle({
             mode: 'webcm',
             settings,
-            logger
+            logger,
           })
 
-          if (processedHTML.includes('</head>')) {
-            processedHTML = processedHTML.replace('</head>', `${bundle}</head>`)
-          } else if (processedHTML.includes('</body>')) {
-            processedHTML = processedHTML.replace('</body>', `${bundle}</body>`)
-          } else {
-            processedHTML = processedHTML + bundle
-          }
+          processedHTML = injectIntoHTML(processedHTML, bundle)
         } catch (error) {
           logger.error('Failed to inject client bundle:', error)
         }
@@ -127,7 +119,7 @@ ${JSON.stringify({ experiments: result.experimentData })}
       const finalResponse = new Response(processedHTML, {
         status: result.fetchResult.status,
         statusText: result.fetchResult.statusText,
-        headers: result.fetchResult.headers
+        headers: result.fetchResult.headers,
       })
 
       event.client.return(finalResponse)
@@ -148,6 +140,8 @@ ${JSON.stringify({ experiments: result.experimentData })}
   return () => {
     setupInstances.delete(manager)
     cleanupEventHandlers()
-    logger.debug('WebCM mode cleanup completed (note: Managed Components API does not support removeEventListener)')
+    logger.debug(
+      'WebCM mode cleanup completed (note: Managed Components API does not support removeEventListener)'
+    )
   }
 }

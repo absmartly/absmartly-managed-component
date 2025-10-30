@@ -1,91 +1,120 @@
-import { MCEvent } from '@managed-components/types'
+import { MCEvent, Client } from '@managed-components/types'
 import { ABSmartlySettings, Logger } from '../types'
-import { TrackBridge } from '../shared/track-bridge'
-import { EventTracker } from '../core/event-tracker'
+import { TrackBridge, PublishData } from '../shared/track-bridge'
+
+interface ExtendedClient extends Client {
+  request?: {
+    method: string
+    url: string
+    json(): Promise<unknown>
+    headers?: Record<string, string>
+  }
+}
 
 export class ABSmartlyEndpointHandler {
   private trackBridge: TrackBridge
 
   constructor(
     private settings: ABSmartlySettings,
-    private eventTracker: EventTracker,
     private logger: Logger
   ) {
     this.trackBridge = new TrackBridge({
-      eventTracker,
       logger,
       apiEndpoint: settings.ABSMARTLY_ENDPOINT,
       apiKey: settings.ABSMARTLY_API_KEY,
-      returnImmediate: true // WebCM: return 202 immediately
+      returnImmediate: true,
     })
   }
 
-  /**
-   * Handles requests to /absmartly endpoint
-   * This is the passthrough endpoint for client-side track() calls
-   * Returns 202 Accepted immediately, forwards to ABsmartly asynchronously
-   */
   async handleRequest(event: MCEvent): Promise<boolean> {
     const url = new URL(event.client.url.toString())
 
-    // Check if this is a request to /absmartly
     if (!url.pathname.startsWith('/absmartly')) {
-      return false // Not our endpoint
+      return false
     }
 
-    try {
-      const method = event.client.request.method.toUpperCase()
+    const client = event.client as ExtendedClient
 
-      // Handle GET requests (for testing/debugging)
+    try {
+      if (!client.request) {
+        event.client.return(
+          new Response('Method not allowed', {
+            status: 405,
+          })
+        )
+        return true
+      }
+
+      const method = client.request.method.toUpperCase()
+
       if (method === 'GET') {
         event.client.return(
           new Response(
             JSON.stringify({
               message: 'ABSmartly passthrough endpoint',
-              status: 'ok'
+              status: 'ok',
             }),
             {
               status: 200,
-              headers: { 'Content-Type': 'application/json' }
+              headers: { 'Content-Type': 'application/json' },
             }
           )
         )
         return true
       }
 
-      // Handle POST requests (from client SDK track calls)
       if (method === 'POST') {
+        const contentType = client.request.headers?.['content-type']
+        if (!contentType || !contentType.includes('application/json')) {
+          this.logger.warn(
+            '[ABSmartly MC] Invalid Content-Type for POST request',
+            { contentType }
+          )
+          event.client.return(
+            new Response(
+              JSON.stringify({
+                error: 'Content-Type must be application/json',
+              }),
+              {
+                status: 415,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            )
+          )
+          return true
+        }
+
         try {
-          const body = await event.client.request.json()
+          const body = await client.request.json()
 
           this.logger.debug('Track request received at /absmartly', {
             method,
-            body
+            body,
           })
 
-          const response = await this.trackBridge.handleTrackRequest(body)
+          const clientId = event.client.ip || 'unknown'
+          const response = await this.trackBridge.handleTrackRequest(
+            body as PublishData,
+            clientId
+          )
 
           event.client.return(response)
           return true
         } catch (error) {
           this.logger.error('Failed to parse track request:', error)
           event.client.return(
-            new Response(
-              JSON.stringify({ error: 'Invalid request body' }),
-              {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-              }
-            )
+            new Response(JSON.stringify({ error: 'Invalid request body' }), {
+              status: 400,
+              headers: { 'Content-Type': 'application/json' },
+            })
           )
           return true
         }
       }
 
-      // Unsupported method
       event.client.return(
         new Response('Method not allowed', {
-          status: 405
+          status: 405,
         })
       )
       return true
@@ -93,7 +122,7 @@ export class ABSmartlyEndpointHandler {
       this.logger.error('Error handling /absmartly request:', error)
       event.client.return(
         new Response('', {
-          status: 202 // Still return 202 on error
+          status: 202,
         })
       )
       return true
