@@ -1,8 +1,10 @@
 import { MCEvent } from '@managed-components/types'
-import { OverridesMap } from '../types'
+import { OverridesMap, Logger } from '../types'
 import { safeParseJSON } from '../utils/serializer'
 
 export class OverridesHandler {
+  constructor(private logger?: Logger) {}
+
   getOverrides(event: MCEvent): OverridesMap {
     const overrides: OverridesMap = {}
 
@@ -33,7 +35,12 @@ export class OverridesHandler {
         }
       }
     } catch (error) {
-      console.error('[ABSmartly MC] Failed to parse URL overrides:', error)
+      const errorMsg = '[ABSmartly MC] Failed to parse URL overrides'
+      if (this.logger) {
+        this.logger.error(errorMsg, error)
+      } else {
+        console.error(errorMsg, error)
+      }
     }
 
     return overrides
@@ -46,7 +53,12 @@ export class OverridesHandler {
         return safeParseJSON(cookieValue, {})
       }
     } catch (error) {
-      console.error('[ABSmartly MC] Failed to parse cookie overrides:', error)
+      const errorMsg = '[ABSmartly MC] Failed to parse cookie overrides'
+      if (this.logger) {
+        this.logger.error(errorMsg, error)
+      } else {
+        console.error(errorMsg, error)
+      }
     }
 
     return {}

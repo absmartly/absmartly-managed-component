@@ -136,7 +136,7 @@ export class HTMLProcessor {
 
     // Fallback to regex parser (always available)
     try {
-      const parser = new HTMLParser(html)
+      const parser = new HTMLParser(html, this.options.logger)
       return parser.applyChanges(changes)
     } catch (regexError) {
       this.options.logger.error(

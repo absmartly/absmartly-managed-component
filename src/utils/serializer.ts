@@ -48,7 +48,10 @@ export function safeParseJSON<T = unknown>(
 ): T | null {
   try {
     return JSON.parse(json) as T
-  } catch {
+  } catch (error) {
+    console.error('[ABSmartly MC] JSON parse error in safeParseJSON:', error, {
+      jsonPreview: json.substring(0, 100)
+    })
     return fallback
   }
 }
