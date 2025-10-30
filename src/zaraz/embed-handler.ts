@@ -84,9 +84,12 @@ export class EmbedHandler {
         return defaultContent
       }
 
+      // Parse variant.config from JSON string to object if needed
+      const parsedConfig = this.parseVariantConfig(variant.config)
+
       // Return variant HTML - ensure we only use string values
-      const htmlValue = variant.config?.html
-      const contentValue = variant.config?.content
+      const htmlValue = parsedConfig?.html
+      const contentValue = parsedConfig?.content
       const html =
         (typeof htmlValue === 'string' ? htmlValue : null) ||
         (typeof contentValue === 'string' ? contentValue : null) ||
@@ -103,5 +106,47 @@ export class EmbedHandler {
       this.logger.error('Failed to handle experiment embed:', error)
       return ''
     }
+  }
+
+  /**
+   * Safely parses variant.config which can be either a JSON string or an already parsed object
+   * @param config - The variant config (string or object)
+   * @returns The parsed config object or an empty object if parsing fails
+   */
+  private parseVariantConfig(config: unknown): {
+    html?: string
+    content?: string
+  } {
+    if (!config) {
+      return {}
+    }
+
+    // If config is already an object, return it
+    if (typeof config === 'object' && config !== null) {
+      return config as { html?: string; content?: string }
+    }
+
+    // If config is a string, try to parse it
+    if (typeof config === 'string') {
+      try {
+        const parsed = JSON.parse(config)
+        return parsed || {}
+      } catch (error) {
+        this.logger.error(
+          '[ABSmartly MC] Failed to parse variant.config JSON',
+          {
+            error: error instanceof Error ? error.message : String(error),
+            config: config.substring(0, 100), // Log first 100 chars for debugging
+          }
+        )
+        return {}
+      }
+    }
+
+    // Unexpected type
+    this.logger.warn('[ABSmartly MC] Unexpected variant.config type', {
+      type: typeof config,
+    })
+    return {}
   }
 }

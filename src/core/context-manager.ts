@@ -52,9 +52,10 @@ export class ContextManager {
   constructor(
     private manager: Manager,
     private settings: ABSmartlySettings,
-    private logger: Logger
+    private logger: Logger,
+    sdk?: typeof SDK.prototype
   ) {
-    this.sdk = this.initializeSDK()
+    this.sdk = sdk || this.initializeSDK()
     this.startCleanupTask()
   }
 
@@ -290,7 +291,8 @@ export class ContextManager {
             continue
           }
 
-          const changes = variant.config?.domChanges || []
+          const parsedConfig = this.parseVariantConfig(variant.config)
+          const changes = parsedConfig.domChanges || []
 
           const needsImmediateTracking = this.shouldTrackImmediately(
             experiment,
@@ -332,6 +334,45 @@ export class ContextManager {
     return experiments
   }
 
+  /**
+   * Safely parses variant.config which can be either a JSON string or an already parsed object
+   * @param config - The variant config (string or object)
+   * @returns The parsed config object or an empty object if parsing fails
+   */
+  private parseVariantConfig(config: unknown): { domChanges?: DOMChange[] } {
+    if (!config) {
+      return {}
+    }
+
+    // If config is already an object, return it
+    if (typeof config === 'object' && config !== null) {
+      return config as { domChanges?: DOMChange[] }
+    }
+
+    // If config is a string, try to parse it
+    if (typeof config === 'string') {
+      try {
+        const parsed = JSON.parse(config)
+        return parsed || {}
+      } catch (error) {
+        this.logger.error(
+          '[ABSmartly MC] Failed to parse variant.config JSON',
+          {
+            error: error instanceof Error ? error.message : String(error),
+            config: config.substring(0, 100), // Log first 100 chars for debugging
+          }
+        )
+        return {}
+      }
+    }
+
+    // Unexpected type
+    this.logger.warn('[ABSmartly MC] Unexpected variant.config type', {
+      type: typeof config,
+    })
+    return {}
+  }
+
   private shouldTrackImmediately(
     experiment: ABSmartlyExperiment,
     _currentVariantChanges: DOMChange[]
@@ -341,7 +382,8 @@ export class ContextManager {
     }
 
     for (const variant of experiment.variants) {
-      const changes = variant.config?.domChanges || []
+      const parsedConfig = this.parseVariantConfig(variant.config)
+      const changes = parsedConfig.domChanges || []
 
       const hasImmediateTrigger = changes.some(
         (change: DOMChange) =>
