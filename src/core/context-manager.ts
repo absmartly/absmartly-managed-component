@@ -36,6 +36,12 @@ interface CircuitBreakerConfig {
   resetTimeout: number
 }
 
+const DEFAULT_SDK_TIMEOUT_MS = 2000
+const DEFAULT_CACHE_TTL_MS = 300000
+const MIN_CLEANUP_INTERVAL_MS = 60000
+const DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
+const DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS = 60000
+
 export class ContextManager {
   private sdk: typeof SDK.prototype
   private contextCache = new Map<string, CachedContextEntry>()
@@ -46,8 +52,8 @@ export class ContextManager {
   private consecutiveFailures = 0
   private circuitBreakerResetTimer: NodeJS.Timeout | null = null
   private circuitBreakerConfig: CircuitBreakerConfig = {
-    failureThreshold: 3,
-    resetTimeout: 60000,
+    failureThreshold: DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+    resetTimeout: DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS,
   }
 
   constructor(
@@ -73,7 +79,7 @@ export class ContextManager {
       environment: this.settings.ABSMARTLY_ENVIRONMENT,
       application: this.settings.ABSMARTLY_APPLICATION,
       retries: 1,
-      timeout: this.settings.SDK_TIMEOUT || 2000,
+      timeout: this.settings.SDK_TIMEOUT || DEFAULT_SDK_TIMEOUT_MS,
     })
 
     return sdk
@@ -81,7 +87,7 @@ export class ContextManager {
 
   private startCleanupTask(): void {
     const ttl = this.getContextCacheTTL()
-    const cleanupInterval = Math.max(ttl, 60000)
+    const cleanupInterval = Math.max(ttl, MIN_CLEANUP_INTERVAL_MS)
 
     this.cleanupInterval = setInterval(async () => {
       await this.cleanupExpiredCaches()
@@ -118,14 +124,17 @@ export class ContextManager {
   }
 
   private isValidCacheEntry(entry: unknown): entry is CachedContextEntry {
+    if (!entry || typeof entry !== 'object') {
+      return false
+    }
+
+    const obj = entry as Record<string, unknown>
     return (
-      !!entry &&
-      typeof entry === 'object' &&
-      'data' in entry &&
-      'timestamp' in entry &&
-      'ttl' in entry &&
-      typeof (entry as any).timestamp === 'number' &&
-      typeof (entry as any).ttl === 'number'
+      'data' in obj &&
+      'timestamp' in obj &&
+      'ttl' in obj &&
+      typeof obj.timestamp === 'number' &&
+      typeof obj.ttl === 'number'
     )
   }
 
@@ -134,7 +143,7 @@ export class ContextManager {
     if (ttl && ttl > 0) {
       return ttl * 1000
     }
-    return 300000
+    return DEFAULT_CACHE_TTL_MS
   }
 
   private recordSuccess(): void {
@@ -246,6 +255,58 @@ export class ContextManager {
     return context as unknown as ABSmartlyContext
   }
 
+  private extractSingleExperiment(
+    context: ABSmartlyContext,
+    experiment: ABSmartlyExperiment,
+    trackImmediate: boolean
+  ): ExperimentData | null {
+    const treatment = context.peek(experiment.name)
+
+    if (treatment === undefined || treatment < 0) {
+      return null
+    }
+
+    const variant = experiment.variants?.[treatment] ?? null
+
+    if (!variant) {
+      this.logger.warn('No variant found for treatment', {
+        experiment: experiment.name,
+        treatment,
+      })
+      return null
+    }
+
+    const parsedConfig = this.parseVariantConfig(variant.config)
+    const changes = parsedConfig.domChanges || []
+
+    const needsImmediateTracking = this.shouldTrackImmediately(
+      experiment,
+      changes
+    )
+
+    if (trackImmediate && needsImmediateTracking) {
+      context.treatment(experiment.name)
+      this.logger.debug('Tracked immediate exposure', {
+        experiment: experiment.name,
+      })
+    }
+
+    this.logger.debug('Extracted experiment', {
+      name: experiment.name,
+      treatment,
+      variant: variant.name,
+      changesCount: changes.length,
+      immediateTracking: needsImmediateTracking,
+    })
+
+    return {
+      name: experiment.name,
+      treatment,
+      variant: variant.name || `variant_${treatment}`,
+      changes,
+    }
+  }
+
   extractExperimentData(
     context: ABSmartlyContext,
     trackImmediate = true
@@ -255,60 +316,22 @@ export class ContextManager {
     try {
       const contextData = context.data()
 
-      if (!contextData || !contextData.experiments) {
+      if (!contextData?.experiments) {
         this.logger.warn('No experiments found in context data')
         return experiments
       }
 
       for (const experiment of contextData.experiments) {
         try {
-          const treatment = context.peek(experiment.name)
-
-          if (treatment === undefined || treatment < 0) {
-            continue
-          }
-
-          const variant = experiment.variants
-            ? experiment.variants[treatment]
-            : null
-
-          if (!variant) {
-            this.logger.warn('No variant found for treatment', {
-              experiment: experiment.name,
-              treatment,
-            })
-            continue
-          }
-
-          const parsedConfig = this.parseVariantConfig(variant.config)
-          const changes = parsedConfig.domChanges || []
-
-          const needsImmediateTracking = this.shouldTrackImmediately(
+          const experimentData = this.extractSingleExperiment(
+            context,
             experiment,
-            changes
+            trackImmediate
           )
 
-          if (trackImmediate && needsImmediateTracking) {
-            context.treatment(experiment.name)
-            this.logger.debug('Tracked immediate exposure', {
-              experiment: experiment.name,
-            })
+          if (experimentData) {
+            experiments.push(experimentData)
           }
-
-          experiments.push({
-            name: experiment.name,
-            treatment,
-            variant: variant.name || `variant_${treatment}`,
-            changes,
-          })
-
-          this.logger.debug('Extracted experiment', {
-            name: experiment.name,
-            treatment,
-            variant: variant.name,
-            changesCount: changes.length,
-            immediateTracking: needsImmediateTracking,
-          })
         } catch (error) {
           this.logger.error('Failed to extract experiment', {
             experiment: experiment.name,
@@ -416,7 +439,7 @@ export class ContextManager {
                 session_id: generateSessionId(userId),
               },
             },
-            cached.data as any
+            cached.data as ContextData
           ) as unknown as ABSmartlyContext
         } catch (error) {
           this.logger.warn(

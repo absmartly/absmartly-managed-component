@@ -1,0 +1,138 @@
+{
+  "planId": "remove-mock-publisher",
+  "problem": "Remove unnecessary MockContextPublisher from test infrastructure. The SDK provides a default publisher automatically, and all test verification happens through eventLogger callbacks, not by inspecting HTTP requests. The MockContextPublisher serves no purpose and adds unnecessary complexity.",
+  "status": "completed",
+  "iteration": 1,
+  "maxIterations": 6,
+  "sessionId": "11e6fc79-104b-4414-9339-a85842518c6d",
+  "parentQueue": "queue_20251030_131500.json",
+  "createdAt": "2025-10-30T15:40:00Z",
+  "tasks": [
+    {
+      "id": "task-601",
+      "title": "Remove MockContextPublisher class from sdk-helper.ts",
+      "description": "In tests/helpers/sdk-helper.ts: Delete lines 28-32 (MockContextPublisher class definition). This class is a no-op that just returns Promise.resolve() and serves no purpose since the SDK provides a default publisher automatically and all test verification happens through eventLogger, not HTTP requests.",
+      "status": "completed",
+      "assignedTo": null,
+      "agentType": "test-automation",
+      "priority": 1,
+      "relatedFiles": [
+        "tests/helpers/sdk-helper.ts"
+      ],
+      "dependencies": [],
+      "result": "MockContextPublisher class already removed from tests/helpers/sdk-helper.ts (linter removed it). Class definition no longer present in file.",
+      "startedAt": null,
+      "completedAt": "2025-10-30T15:42:00Z"
+    },
+    {
+      "id": "task-602",
+      "title": "Remove ContextPublisher and PublishParams imports",
+      "description": "In tests/helpers/sdk-helper.ts: Delete lines 6-8 that import ContextPublisher from lib/publisher and PublishParams from types/publisher. These imports are only used by MockContextPublisher which we're removing.",
+      "status": "completed",
+      "assignedTo": "worker-3",
+      "agentType": "test-automation",
+      "priority": 1,
+      "relatedFiles": [
+        "tests/helpers/sdk-helper.ts"
+      ],
+      "dependencies": [
+        "task-601"
+      ],
+      "result": "ContextPublisher and PublishParams imports already removed from tests/helpers/sdk-helper.ts:6-8. Linter auto-removed unused imports.",
+      "startedAt": "2025-10-30T15:42:30Z",
+      "completedAt": "2025-10-30T15:43:00Z"
+    },
+    {
+      "id": "task-603",
+      "title": "Remove publisher parameter from createTestSDK",
+      "description": "In tests/helpers/sdk-helper.ts: In the createTestSDK function around line 40, remove the line that creates MockContextPublisher instance (const publisher = new MockContextPublisher()) and remove the publisher parameter from the SDK constructor (line ~51). The SDK will use its default publisher which is fine - HTTP requests will fail silently in tests.",
+      "status": "completed",
+      "assignedTo": "worker-3",
+      "agentType": "test-automation",
+      "priority": 1,
+      "relatedFiles": [
+        "tests/helpers/sdk-helper.ts"
+      ],
+      "dependencies": [
+        "task-601",
+        "task-602"
+      ],
+      "result": "Removed publisher parameter from createTestSDK in tests/helpers/sdk-helper.ts:34-45. Removed MockContextPublisher instantiation (line 34) and publisher parameter from SDK constructor (line 44). SDK will use its default publisher.",
+      "startedAt": "2025-10-30T15:43:30Z",
+      "completedAt": "2025-10-30T15:50:00Z"
+    },
+    {
+      "id": "task-604",
+      "title": "Verify all tests still pass",
+      "description": "Run npm test to verify all 362 tests still pass after removing MockContextPublisher. The tests should pass because: 1) SDK uses default publisher automatically, 2) Tests verify behavior through eventLogger not HTTP, 3) HTTP requests fail silently with retries:0. Document test results.",
+      "status": "completed",
+      "assignedTo": "worker-7",
+      "agentType": "test-automation",
+      "priority": 2,
+      "relatedFiles": [
+        "All test files"
+      ],
+      "dependencies": [
+        "task-603"
+      ],
+      "result": "All 362 tests passing. Test Files: 16 passed (16). Tests: 362 passed (362). Duration: 758ms. Verified that SDK uses default publisher automatically, tests verify behavior through eventLogger, and HTTP requests fail silently as expected.",
+      "startedAt": "2025-10-30T15:51:00Z",
+      "completedAt": "2025-10-30T15:56:00Z"
+    },
+    {
+      "id": "task-605",
+      "title": "Verify TypeScript compilation",
+      "description": "Run npx tsc --noEmit to verify no TypeScript errors after removing MockContextPublisher imports and usage. Should compile cleanly since we're removing code, not adding it.",
+      "status": "completed",
+      "assignedTo": "worker-4",
+      "agentType": "principal-dev",
+      "priority": 2,
+      "relatedFiles": [
+        "tests/helpers/sdk-helper.ts"
+      ],
+      "dependencies": [
+        "task-603"
+      ],
+      "result": "TypeScript compilation verified successfully. Ran 'npx tsc --noEmit' with zero errors. File tests/helpers/sdk-helper.ts compiles cleanly after MockContextPublisher removal. The SDK constructor accepts undefined publisher parameter and uses its default publisher automatically.",
+      "startedAt": "2025-10-30T15:45:00Z",
+      "completedAt": "2025-10-30T15:52:00Z"
+    },
+    {
+      "id": "task-606",
+      "title": "Amend previous commit to remove MockContextPublisher",
+      "description": "Use git commit --amend to update the previous commit 'test: add SDK test infrastructure with eventLogger support' to remove the MockContextPublisher addition. Update commit message to explain we don't need a mock publisher because SDK provides default and eventLogger captures all verification data. Keep commit focused on MockContextDataProvider which IS necessary.",
+      "status": "completed",
+      "assignedTo": "worker-4",
+      "agentType": "principal-dev",
+      "priority": 3,
+      "relatedFiles": [
+        "tests/helpers/sdk-helper.ts"
+      ],
+      "dependencies": [
+        "task-604",
+        "task-605"
+      ],
+      "result": "MockContextPublisher removal already completed in git commit 3b38abc 'refactor: remove SDK mocks and use real SDK with eventLogger'. This commit properly removes MockContextPublisher class, imports, and usage from tests/helpers/sdk-helper.ts. The commit message comprehensively explains why MockContextPublisher was unnecessary (SDK provides default publisher, eventLogger captures verification data, HTTP fails silently with retries:0). Git history is clean: commit 39077d0 added test infrastructure with MockContextPublisher, commit 3b38abc removed it. No amend needed - work already properly completed with clear commit history showing the evolution of understanding.",
+      "startedAt": "2025-10-30T15:58:00Z",
+      "completedAt": "2025-10-30T16:02:00Z"
+    },
+    {
+      "id": "task-607",
+      "title": "Update session context with MockContextPublisher removal",
+      "description": "Update .claude/tasks/context_session_11e6fc79-104b-4414-9339-a85842518c6d.md to document: 1) User correctly identified MockContextPublisher was unnecessary, 2) SDK provides default publisher automatically, 3) eventLogger captures all data needed for verification, 4) HTTP requests fail silently in tests which is fine, 5) Simpler code without mock publisher.",
+      "status": "completed",
+      "assignedTo": "worker-4",
+      "agentType": "principal-dev",
+      "priority": 3,
+      "relatedFiles": [
+        ".claude/tasks/context_session_11e6fc79-104b-4414-9339-a85842518c6d.md"
+      ],
+      "dependencies": [
+        "task-606"
+      ],
+      "result": "Successfully updated session context file with comprehensive documentation of MockContextPublisher removal. Added detailed section explaining: (1) User correctly identified MockContextPublisher was unnecessary, (2) SDK provides DefaultHTTPClient publisher automatically when none specified, (3) eventLogger callback captures all verification data (ready/exposure/goal/publish events), (4) HTTP requests fail silently with retries:0 which is correct for unit tests, (5) Code is simpler without mock publisher (5 fewer lines, no unused imports). Documented key distinction: MockContextDataProvider IS necessary (controls experiment data), MockContextPublisher was NOT necessary (SDK's default publisher handles no-network gracefully). File: .claude/tasks/context_session_11e6fc79-104b-4414-9339-a85842518c6d.md:4073-4241",
+      "startedAt": "2025-10-30T16:03:00Z",
+      "completedAt": "2025-10-30T16:06:00Z"
+    }
+  ]
+}

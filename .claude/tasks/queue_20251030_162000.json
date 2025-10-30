@@ -1,0 +1,235 @@
+{
+  "planId": "remove-mock-context-data-provider",
+  "problem": "Remove unnecessary MockContextDataProvider from test infrastructure. The SDK's createContextWith() method allows passing experiment data directly, eliminating the need to mock the provider. Refactor ContextManager to use createContextWith() instead of createContext() so tests can pass data directly without any provider mocks.",
+  "status": "in-progress",
+  "iteration": 1,
+  "maxIterations": 6,
+  "sessionId": "11e6fc79-104b-4414-9339-a85842518c6d",
+  "parentQueue": "queue_20251030_154000.json",
+  "createdAt": "2025-10-30T16:20:00Z",
+  "tasks": [
+    {
+      "id": "task-701",
+      "title": "Analyze ContextManager's current SDK usage pattern",
+      "description": "Read src/core/context-manager.ts and identify all places where sdk.createContext() is called. Document the current pattern: createContext() uses the provider to fetch data asynchronously. We need to refactor to use createContextWith() which accepts data directly. Key locations: initializeSDK(), createContext() method (line 219), getOrCreateContext() (line 423). Document what data each method needs and where it comes from.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "principal-dev",
+      "priority": 1,
+      "relatedFiles": [
+        "src/core/context-manager.ts"
+      ],
+      "dependencies": [],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-702",
+      "title": "Refactor ContextManager.createContext to use createContextWith",
+      "description": "In src/core/context-manager.ts:200-258, refactor createContext() method. Current: calls sdk.createContext() which uses provider. New: Accept contextData parameter, call sdk.createContextWith(params, contextData). Remove the await context.ready() since createContextWith provides data directly. Update method signature: createContext(userId, overrides, attributes, contextData). Keep override and attributes logic, but pass contextData to createContextWith instead of letting provider fetch it.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "backend-architect",
+      "priority": 2,
+      "relatedFiles": [
+        "src/core/context-manager.ts"
+      ],
+      "dependencies": [
+        "task-701"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-703",
+      "title": "Refactor ContextManager.getOrCreateContext to fetch and pass data",
+      "description": "In src/core/context-manager.ts:402-478, refactor getOrCreateContext() method. Current: calls createContext() which uses provider internally. New: Fetch contextData using sdk.getContextData() first, then pass to createContext(). Pattern: const contextData = await sdk.getContextData(); const context = await this.createContext(userId, overrides, attributes, contextData). This makes data fetching explicit instead of hidden in provider. Handle errors from getContextData() by calling createFallbackContext().",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "backend-architect",
+      "priority": 2,
+      "relatedFiles": [
+        "src/core/context-manager.ts"
+      ],
+      "dependencies": [
+        "task-702"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-704",
+      "title": "Update createFallbackContext to use createContextWith",
+      "description": "In src/core/context-manager.ts:480-489, refactor createFallbackContext() method. Current: calls sdk.createContext() which would use provider (though it returns empty data). New: call sdk.createContextWith(params, {experiments: []}) to explicitly create context with empty data. This makes it clear the fallback has no experiments.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "backend-architect",
+      "priority": 2,
+      "relatedFiles": [
+        "src/core/context-manager.ts"
+      ],
+      "dependencies": [
+        "task-702"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-705",
+      "title": "Remove MockContextDataProvider from sdk-helper.ts",
+      "description": "In tests/helpers/sdk-helper.ts: Delete lines 10-29 (MockContextDataProvider class). Delete the ContextDataProvider import (line 5). In createTestSDK() function (lines 32-49), remove the provider instantiation and provider parameter from SDK constructor. The SDK will use its default provider, but tests won't call methods that use it. Tests will use createContextWith() directly with test data.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "test-automation",
+      "priority": 3,
+      "relatedFiles": [
+        "tests/helpers/sdk-helper.ts"
+      ],
+      "dependencies": [
+        "task-702",
+        "task-703",
+        "task-704"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-706",
+      "title": "Update context-manager tests to pass contextData",
+      "description": "In tests/unit/core/context-manager.test.ts: Update all calls to contextManager.createContext() to pass basicExperimentData or emptyContextData as the 4th parameter. Example: contextManager.createContext('user123', {}, {}, basicExperimentData). This passes test data directly instead of relying on MockContextDataProvider. Update ~20 test calls across all describe blocks (createContext, extractExperimentData, getOrCreateContext tests).",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "test-automation",
+      "priority": 3,
+      "relatedFiles": [
+        "tests/unit/core/context-manager.test.ts"
+      ],
+      "dependencies": [
+        "task-702",
+        "task-705"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-707",
+      "title": "Update experiment-view-tracking tests to pass contextData",
+      "description": "In tests/unit/zaraz/experiment-view-tracking.test.ts: Update any calls to contextManager methods that now require contextData parameter. The ContextManager mock should return contexts created with createTestContext(sdk, userId, testData). Review all test cases to ensure they pass appropriate test data where needed.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "test-automation",
+      "priority": 3,
+      "relatedFiles": [
+        "tests/unit/zaraz/experiment-view-tracking.test.ts"
+      ],
+      "dependencies": [
+        "task-702",
+        "task-705"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-708",
+      "title": "Verify all tests pass after provider removal",
+      "description": "Run npm test to verify all 362 tests pass after removing MockContextDataProvider and refactoring to use createContextWith(). Tests should pass because: 1) ContextManager now uses createContextWith() with explicit data, 2) Tests pass data directly via parameter, 3) No provider mocking needed. Document test results and any failures.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "test-automation",
+      "priority": 4,
+      "relatedFiles": [
+        "All test files"
+      ],
+      "dependencies": [
+        "task-706",
+        "task-707"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-709",
+      "title": "Verify TypeScript compilation",
+      "description": "Run npx tsc --noEmit to verify no TypeScript errors after refactoring. The new createContext signature should have proper types for the contextData parameter. Verify all test files compile correctly with the updated method signatures.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "principal-dev",
+      "priority": 4,
+      "relatedFiles": [
+        "src/core/context-manager.ts",
+        "tests/unit/core/context-manager.test.ts"
+      ],
+      "dependencies": [
+        "task-708"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-710",
+      "title": "Run linter and fix issues",
+      "description": "Run npm run lint to check for any linting issues. Auto-fix with --fix flag if possible. Ensure no new linter warnings beyond the existing 3 acceptable @typescript-eslint/no-explicit-any warnings.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "principal-dev",
+      "priority": 4,
+      "relatedFiles": [
+        "src/core/context-manager.ts",
+        "tests/helpers/sdk-helper.ts"
+      ],
+      "dependencies": [
+        "task-709"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-711",
+      "title": "Create git commit for MockContextDataProvider removal",
+      "description": "Create a git commit with message: 'refactor: remove MockContextDataProvider and use createContextWith directly'. Commit message should explain: 1) Removed MockContextDataProvider class (20 lines), 2) Refactored ContextManager to use createContextWith() with explicit data, 3) Tests pass data directly without provider mocking, 4) Simpler, clearer code that shows data flow explicitly, 5) All 362 tests passing. Include file:line references for key changes.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "principal-dev",
+      "priority": 5,
+      "relatedFiles": [
+        "src/core/context-manager.ts",
+        "tests/helpers/sdk-helper.ts",
+        "tests/unit/core/context-manager.test.ts"
+      ],
+      "dependencies": [
+        "task-710"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "id": "task-712",
+      "title": "Update session context with final summary",
+      "description": "Update .claude/tasks/context_session_11e6fc79-104b-4414-9339-a85842518c6d.md with comprehensive summary: 1) User correctly identified BOTH mock publisher AND mock provider were unnecessary, 2) SDK's createContextWith() accepts data directly, 3) Made data flow explicit: fetch with getContextData(), pass to createContextWith(), 4) Removed all provider mocking (~20 lines), 5) Tests clearer: pass data as parameter, no hidden provider behavior, 6) Final result: zero mocks, explicit data flow, all 362 tests passing.",
+      "status": "pending",
+      "assignedTo": null,
+      "agentType": "principal-dev",
+      "priority": 5,
+      "relatedFiles": [
+        ".claude/tasks/context_session_11e6fc79-104b-4414-9339-a85842518c6d.md"
+      ],
+      "dependencies": [
+        "task-711"
+      ],
+      "result": null,
+      "startedAt": null,
+      "completedAt": null
+    }
+  ]
+}
