@@ -66,7 +66,7 @@ describe('ContextManager', () => {
 
   describe('constructor', () => {
     it('should initialize SDK with correct configuration', () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       expect(contextManager).toBeDefined()
@@ -80,7 +80,7 @@ describe('ContextManager', () => {
     })
 
     it('should start cleanup task', () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       expect(logger.debug).toHaveBeenCalledWith(
@@ -95,10 +95,10 @@ describe('ContextManager', () => {
 
   describe('createContext', () => {
     it('should create context that works and emits ready event', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
 
       expect(context).toBeDefined()
       expect(context.ready).toBeDefined()
@@ -108,10 +108,10 @@ describe('ContextManager', () => {
     })
 
     it('should apply overrides and verify treatment returns correct variant', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', { experiment1: 1 }, {})
+      const context = await contextManager.createContext('user123', { experiment1: 1 }, {}, basicExperimentData)
 
       const treatment = context.treatment('experiment1')
       expect(treatment).toBe(1)
@@ -126,13 +126,14 @@ describe('ContextManager', () => {
     })
 
     it('should set context attributes when provided', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       const context = await contextManager.createContext(
         'user123',
         {},
-        { userAgent: 'test-agent' }
+        { userAgent: 'test-agent' },
+        basicExperimentData
       )
 
       expect(context).toBeDefined()
@@ -143,53 +144,52 @@ describe('ContextManager', () => {
     })
 
     it('should wait for context ready', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
 
       expect(context).toBeDefined()
       const readyEvents = events.filter(e => e.name === 'ready')
       expect(readyEvents.length).toBeGreaterThan(0)
     })
 
-    it('should handle timeout', async () => {
-      const sdk = createTestSDK(eventLogger, emptyContextData, 100)
+    it('should create context immediately with provided data', async () => {
+      const sdk = createTestSDK(eventLogger)
       const slowSettings = { ...settings, SDK_TIMEOUT: 10 }
       contextManager = new ContextManager(manager as Manager, slowSettings, logger, sdk)
 
-      await expect(
-        contextManager.createContext('user123', {}, {})
-      ).rejects.toThrow('Context timeout')
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
+      expect(context).toBeDefined()
     })
   })
 
   describe('extractExperimentData', () => {
     it('should extract experiment data for eligible user', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
       const experiments = contextManager.extractExperimentData(context, false)
 
       expect(Array.isArray(experiments)).toBe(true)
     })
 
     it('should skip experiments where user is not eligible', async () => {
-      const sdk = createTestSDK(eventLogger, emptyContextData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, emptyContextData)
       const experiments = contextManager.extractExperimentData(context, false)
 
       expect(experiments).toHaveLength(0)
     })
 
     it('should track immediate exposure when trackImmediate is true', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
       events = []
 
       contextManager.extractExperimentData(context, true)
@@ -199,10 +199,10 @@ describe('ContextManager', () => {
     })
 
     it('should not track exposure when trackImmediate is false', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
       events = []
 
       contextManager.extractExperimentData(context, false)
@@ -212,20 +212,20 @@ describe('ContextManager', () => {
     })
 
     it('should handle missing context data', async () => {
-      const sdk = createTestSDK(eventLogger, emptyContextData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, emptyContextData)
       const experiments = contextManager.extractExperimentData(context, false)
 
       expect(experiments).toHaveLength(0)
     })
 
     it('should handle experiment extraction errors gracefully', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
       const brokenContext = {
         ...context,
         getData: () => {
@@ -242,7 +242,8 @@ describe('ContextManager', () => {
 
   describe('getOrCreateContext', () => {
     it('should create new context if not cached', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       const context = await contextManager.getOrCreateContext('user123')
@@ -253,7 +254,8 @@ describe('ContextManager', () => {
     })
 
     it('should cache created context with TTL', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       await contextManager.getOrCreateContext('user123')
@@ -269,7 +271,8 @@ describe('ContextManager', () => {
     })
 
     it('should return cached context if available and not expired', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       await contextManager.getOrCreateContext('user123')
@@ -283,7 +286,8 @@ describe('ContextManager', () => {
     })
 
     it('should create new context on second call if cache is expired', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       await contextManager.getOrCreateContext('user123')
@@ -298,7 +302,8 @@ describe('ContextManager', () => {
     })
 
     it('should create new context if cache recreation fails', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      const getContextDataSpy = vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       await contextManager.getOrCreateContext('user123')
@@ -321,7 +326,8 @@ describe('ContextManager', () => {
 
     it('should handle cache set failure gracefully', async () => {
       manager.set = vi.fn().mockRejectedValue(new Error('Cache set failed'))
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       const context = await contextManager.getOrCreateContext('user123')
@@ -335,7 +341,8 @@ describe('ContextManager', () => {
 
     it('should use default TTL when CONTEXT_CACHE_TTL is not set', async () => {
       delete settings.CONTEXT_CACHE_TTL
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       await contextManager.getOrCreateContext('user123')
@@ -349,7 +356,8 @@ describe('ContextManager', () => {
     })
 
     it('should store cache entry in manager for persistence', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
+      vi.spyOn(sdk, 'getContextData').mockResolvedValue(basicExperimentData as any)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       await contextManager.getOrCreateContext('user123')
@@ -367,10 +375,10 @@ describe('ContextManager', () => {
 
   describe('publishContext', () => {
     it('should publish context successfully', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
 
       await contextManager.publishContext(context)
 
@@ -378,10 +386,10 @@ describe('ContextManager', () => {
     })
 
     it('should handle publish errors', async () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
-      const context = await contextManager.createContext('user123', {}, {})
+      const context = await contextManager.createContext('user123', {}, {}, basicExperimentData)
 
       vi.spyOn(context, 'publish').mockRejectedValue(new Error('Publish failed'))
 
@@ -395,7 +403,7 @@ describe('ContextManager', () => {
 
   describe('destroy', () => {
     it('should stop cleanup task', () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       contextManager.destroy()
@@ -404,7 +412,7 @@ describe('ContextManager', () => {
     })
 
     it('should handle multiple destroy calls', () => {
-      const sdk = createTestSDK(eventLogger, basicExperimentData)
+      const sdk = createTestSDK(eventLogger)
       contextManager = new ContextManager(manager as Manager, settings, logger, sdk)
 
       contextManager.destroy()

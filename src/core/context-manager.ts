@@ -1,4 +1,5 @@
 import { SDK } from '@absmartly/javascript-sdk'
+import type { ContextData } from '@absmartly/javascript-sdk/types/context'
 import { Manager } from '@managed-components/types'
 import {
   ABSmartlySettings,
@@ -200,7 +201,8 @@ export class ContextManager {
   async createContext(
     userId: string,
     overrides: OverridesMap,
-    attributes: ContextAttributes
+    attributes: ContextAttributes,
+    contextData: ContextData
   ): Promise<ABSmartlyContext> {
     if (this.isCircuitOpen()) {
       this.logger.warn('Circuit breaker is OPEN, skipping SDK call', {
@@ -216,12 +218,15 @@ export class ContextManager {
       circuitState: this.circuitBreakerState,
     })
 
-    const context = this.sdk.createContext({
-      units: {
-        user_id: userId,
-        session_id: generateSessionId(userId),
+    const context = this.sdk.createContextWith(
+      {
+        units: {
+          user_id: userId,
+          session_id: generateSessionId(userId),
+        },
       },
-    }) as unknown as ABSmartlyContext
+      contextData
+    ) as unknown as ABSmartlyContext
 
     if (Object.keys(overrides).length > 0) {
       for (const [experimentName, variant] of Object.entries(overrides)) {
@@ -235,24 +240,8 @@ export class ContextManager {
       this.logger.debug('Set context attributes', attributes)
     }
 
-    try {
-      await Promise.race([
-        context.ready(),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error('Context timeout')),
-            this.settings.SDK_TIMEOUT || 2000
-          )
-        ),
-      ])
-
-      this.recordSuccess()
-      this.logger.debug('ABsmartly context ready')
-    } catch (error) {
-      this.recordFailure()
-      this.logger.error('Failed to create context:', error)
-      throw error
-    }
+    this.recordSuccess()
+    this.logger.debug('ABsmartly context ready with provided data')
 
     return context as unknown as ABSmartlyContext
   }
@@ -443,10 +432,15 @@ export class ContextManager {
     }
 
     try {
-      const context = await this.createContext(userId, overrides, attributes)
+      const contextData = await this.sdk.getContextData({ path: '' })
+      const context = await this.createContext(
+        userId,
+        overrides,
+        attributes,
+        contextData
+      )
 
       try {
-        const contextData = context.data()
         const ttl = this.getContextCacheTTL()
         const cacheEntry: CachedContextEntry = {
           data: contextData,
@@ -473,18 +467,22 @@ export class ContextManager {
         })
         return this.createFallbackContext(userId)
       }
-      throw error
+      this.logger.error('Failed to fetch context data:', error)
+      return this.createFallbackContext(userId)
     }
   }
 
   private createFallbackContext(userId: string): ABSmartlyContext {
     this.logger.info('Creating fallback context (no experiments)', { userId })
-    const context = this.sdk.createContext({
-      units: {
-        user_id: userId,
-        session_id: generateSessionId(userId),
+    const context = this.sdk.createContextWith(
+      {
+        units: {
+          user_id: userId,
+          session_id: generateSessionId(userId),
+        },
       },
-    }) as unknown as ABSmartlyContext
+      { experiments: [] }
+    ) as unknown as ABSmartlyContext
     return context
   }
 

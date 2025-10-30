@@ -100,11 +100,15 @@ export function setupZarazMode(
         logger.debug('Overrides detected', { overrides })
       }
 
-      const context = await contextManager.createContext(userId, overrides, {
-        url: event.client.url.toString(),
-        userAgent: event.client.userAgent,
-        ip: event.client.ip,
-      })
+      const context = await contextManager.getOrCreateContext(
+        userId,
+        overrides,
+        {
+          url: event.client.url.toString(),
+          userAgent: event.client.userAgent,
+          ip: event.client.ip,
+        }
+      )
 
       const experimentData = contextManager.extractExperimentData(context)
       logger.debug('Experiments extracted', {

@@ -45,11 +45,15 @@ export class RequestHandler {
       }
 
       // 4. Create context on edge
-      const context = await contextManager.createContext(userId, overrides, {
-        url: event.client.url.toString(),
-        userAgent: event.client.userAgent,
-        ip: event.client.ip,
-      })
+      const context = await contextManager.getOrCreateContext(
+        userId,
+        overrides,
+        {
+          url: event.client.url.toString(),
+          userAgent: event.client.userAgent,
+          ip: event.client.ip,
+        }
+      )
 
       // 5. Extract experiment data and treatments
       const experimentData = contextManager.extractExperimentData(context)

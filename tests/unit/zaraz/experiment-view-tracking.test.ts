@@ -125,7 +125,7 @@ describe('ExperimentView Tracking', () => {
     } as unknown as Manager
 
     // Create real SDK context using eventLogger
-    const sdk = createTestSDK(eventLogger, basicExperimentData)
+    const sdk = createTestSDK(eventLogger)
     mockContext = createTestContext(sdk, 'test-user-123', basicExperimentData)
     await mockContext.ready()
 
