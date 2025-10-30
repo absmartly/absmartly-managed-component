@@ -1,4 +1,5 @@
 import { parseHTML } from 'linkedom'
+import DOMPurify from 'isomorphic-dompurify'
 import { DOMChange, Logger } from '../types'
 
 type LinkedomDocument = ReturnType<typeof parseHTML>['document']
@@ -48,6 +49,44 @@ export class HTMLParserLinkedom {
     }
   }
 
+  private sanitizeHTML(html: string): string {
+    let cleanHTML = DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio',
+        'b', 'bdi', 'bdo', 'blockquote', 'br', 'button',
+        'canvas', 'caption', 'cite', 'code', 'col', 'colgroup',
+        'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt',
+        'em', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr',
+        'i', 'img', 'input', 'ins',
+        'kbd', 'label', 'legend', 'li', 'main', 'map', 'mark', 'meter',
+        'nav', 'ol', 'optgroup', 'option', 'output',
+        'p', 'picture', 'pre', 'progress',
+        'q', 'rp', 'rt', 'ruby',
+        's', 'samp', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup',
+        'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'tr', 'track',
+        'u', 'ul', 'var', 'video', 'wbr'
+      ],
+      ALLOWED_ATTR: [
+        'class', 'id', 'style', 'title', 'role', 'aria-*', 'data-*',
+        'href', 'target', 'rel', 'src', 'alt', 'width', 'height',
+        'type', 'name', 'value', 'placeholder', 'disabled', 'readonly', 'checked',
+        'colspan', 'rowspan', 'controls', 'autoplay', 'loop', 'muted'
+      ],
+      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+      FORBID_TAGS: ['script', 'object', 'link', 'meta'],
+      SANITIZE_DOM: true,
+      KEEP_CONTENT: true,
+      RETURN_DOM: false,
+      RETURN_DOM_FRAGMENT: false
+    })
+
+    cleanHTML = cleanHTML.replace(/\s(href|src)=(["'])data:(?:text\/html|application\/javascript)[^'"]*\2/gi, '')
+
+    return cleanHTML
+  }
+
   private applyChangeToElement(
     document: LinkedomDocument,
     element: LinkedomElement,
@@ -59,7 +98,7 @@ export class HTMLParserLinkedom {
         break
 
       case 'html':
-        element.innerHTML = change.value
+        element.innerHTML = this.sanitizeHTML(change.value)
         break
 
       case 'style':
@@ -149,6 +188,29 @@ export class HTMLParserLinkedom {
     }
   }
 
+  private sanitizeAttributeValue(name: string, value: string): string {
+    // Block dangerous protocols in href/src attributes
+    if (name === 'href' || name === 'src') {
+      const lowerValue = value.toLowerCase().trim()
+      if (
+        lowerValue.startsWith('javascript:') ||
+        lowerValue.startsWith('data:') ||
+        lowerValue.startsWith('vbscript:')
+      ) {
+        this.logger?.warn('[ABSmartly MC] Blocked dangerous protocol in attribute:', name, value)
+        return ''
+      }
+    }
+
+    // Block event handler attributes
+    if (name.toLowerCase().startsWith('on')) {
+      this.logger?.warn('[ABSmartly MC] Blocked event handler attribute:', name)
+      return ''
+    }
+
+    return value
+  }
+
   private applyAttributeChange(
     element: LinkedomElement,
     change: DOMChange
@@ -158,7 +220,13 @@ export class HTMLParserLinkedom {
     if (change.value === null || change.value === undefined) {
       element.removeAttribute(change.name)
     } else {
-      element.setAttribute(change.name, String(change.value))
+      const sanitizedValue = this.sanitizeAttributeValue(change.name, String(change.value))
+      if (sanitizedValue !== '') {
+        element.setAttribute(change.name, sanitizedValue)
+      } else {
+        // Don't set empty/blocked attributes
+        element.removeAttribute(change.name)
+      }
     }
   }
 
@@ -218,15 +286,18 @@ export class HTMLParserLinkedom {
     // Create new element
     const newElement = document.createElement(config.tag || 'div')
 
-    // Set HTML content
+    // Set HTML content (sanitized to prevent XSS)
     if (config.html) {
-      newElement.innerHTML = config.html
+      newElement.innerHTML = this.sanitizeHTML(config.html)
     }
 
-    // Set attributes
+    // Set attributes (sanitized to prevent XSS)
     if (config.attributes) {
       for (const [name, value] of Object.entries(config.attributes)) {
-        newElement.setAttribute(name, String(value))
+        const sanitizedValue = this.sanitizeAttributeValue(name, String(value))
+        if (sanitizedValue !== '') {
+          newElement.setAttribute(name, sanitizedValue)
+        }
       }
     }
 
