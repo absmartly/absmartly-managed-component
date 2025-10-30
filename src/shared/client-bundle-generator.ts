@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { ABSmartlySettings, Logger } from '../types'
+import { escapeSelectorForJS } from '../utils/selector-validator'
 
 const SCRIPTS_DIR = join(__dirname, 'client-scripts')
 
@@ -36,7 +37,7 @@ export function generateClientBundle(options: ClientBundleOptions): string {
 }
 
 function generateAntiFlickerCSS(settings: ABSmartlySettings): string {
-  const selector = settings.HIDE_SELECTOR || 'body'
+  const selector = escapeSelectorForJS(settings.HIDE_SELECTOR || 'body')
   const timeout = settings.HIDE_TIMEOUT || 3000
   const transitionMs = settings.TRANSITION_MS || '300'
 
@@ -70,7 +71,7 @@ function generateTriggerOnViewScript(mode: 'zaraz' | 'webcm', settings: ABSmartl
 
 function generateInitScript(settings: ABSmartlySettings): string {
   const template = getInitTemplate()
-  const selector = settings.HIDE_SELECTOR || 'body'
+  const selector = escapeSelectorForJS(settings.HIDE_SELECTOR || 'body')
   const enableDebug = settings.ENABLE_DEBUG || false
 
   return `<script>\n${template

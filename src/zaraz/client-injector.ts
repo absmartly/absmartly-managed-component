@@ -2,6 +2,7 @@ import { MCEvent } from '@managed-components/types'
 import { ABSmartlySettings } from '../types'
 import { generateClientBundle } from '../shared/client-bundle-generator'
 import { Logger } from '../types'
+import { escapeSelectorForJS } from '../utils/selector-validator'
 
 export class ClientInjector {
   constructor(
@@ -37,7 +38,7 @@ export class ClientInjector {
   }
 
   injectFailsafe(event: MCEvent): void {
-    const selector = this.settings.HIDE_SELECTOR || 'body'
+    const selector = escapeSelectorForJS(this.settings.HIDE_SELECTOR || 'body')
     const failsafeScript = `
       <script>
         setTimeout(function() {
