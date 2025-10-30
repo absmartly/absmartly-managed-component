@@ -2,7 +2,17 @@
  * Validates and sanitizes CSS selectors to prevent injection attacks
  */
 
-export function validateSelector(selector: string): string {
+import { Logger } from '../types'
+
+function logWarn(logger: Logger | undefined, ...args: unknown[]): void {
+  if (logger) {
+    logger.warn(...args)
+  } else {
+    console.warn('[ABSmartly MC]', ...args)
+  }
+}
+
+export function validateSelector(selector: string, logger?: Logger): string {
   if (!selector || typeof selector !== 'string') {
     return 'body'
   }
@@ -14,7 +24,7 @@ export function validateSelector(selector: string): string {
   }
 
   if (trimmed.length > 200) {
-    console.warn('[ABSmartly MC] Selector too long, using default', {
+    logWarn(logger, 'Selector too long, using default', {
       length: trimmed.length,
     })
     return 'body'
@@ -22,12 +32,9 @@ export function validateSelector(selector: string): string {
 
   const allowedPattern = /^[a-zA-Z0-9\s\-_#.[\]="':,>+~*()]+$/
   if (!allowedPattern.test(trimmed)) {
-    console.warn(
-      '[ABSmartly MC] Invalid characters in selector, using default',
-      {
-        selector: trimmed,
-      }
-    )
+    logWarn(logger, 'Invalid characters in selector, using default', {
+      selector: trimmed,
+    })
     return 'body'
   }
 
@@ -46,12 +53,9 @@ export function validateSelector(selector: string): string {
 
   for (const pattern of dangerousPatterns) {
     if (pattern.test(trimmed)) {
-      console.warn(
-        '[ABSmartly MC] Dangerous pattern detected in selector, using default',
-        {
-          selector: trimmed,
-        }
-      )
+      logWarn(logger, 'Dangerous pattern detected in selector, using default', {
+        selector: trimmed,
+      })
       return 'body'
     }
   }
@@ -62,8 +66,8 @@ export function validateSelector(selector: string): string {
 /**
  * Escapes a selector for safe use in JavaScript strings
  */
-export function escapeSelectorForJS(selector: string): string {
-  const validated = validateSelector(selector)
+export function escapeSelectorForJS(selector: string, logger?: Logger): string {
+  const validated = validateSelector(selector, logger)
 
   return validated
     .replace(/\\/g, '\\\\')

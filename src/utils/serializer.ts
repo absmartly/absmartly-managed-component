@@ -1,19 +1,33 @@
-import { ContextData } from '../types'
+import { ContextData, Logger } from '../types'
 
-export function serializeContextData(data: ContextData): string {
+function logError(logger: Logger | undefined, ...args: unknown[]): void {
+  if (logger) {
+    logger.error(...args)
+  } else {
+    console.error('[ABSmartly MC]', ...args)
+  }
+}
+
+export function serializeContextData(
+  data: ContextData,
+  logger?: Logger
+): string {
   try {
     return JSON.stringify(data)
   } catch (error) {
-    console.error('[ABSmartly MC] Failed to serialize context data:', error)
+    logError(logger, 'Failed to serialize context data:', error)
     return JSON.stringify({ experiments: [] })
   }
 }
 
-export function deserializeContextData(json: string): ContextData {
+export function deserializeContextData(
+  json: string,
+  logger?: Logger
+): ContextData {
   try {
     return JSON.parse(json)
   } catch (error) {
-    console.error('[ABSmartly MC] Failed to deserialize context data:', error)
+    logError(logger, 'Failed to deserialize context data:', error)
     return { experiments: [] }
   }
 }
@@ -44,12 +58,13 @@ export function hashString(str: string): string {
 
 export function safeParseJSON<T = unknown>(
   json: string,
-  fallback: T | null = null
+  fallback: T | null = null,
+  logger?: Logger
 ): T | null {
   try {
     return JSON.parse(json) as T
   } catch (error) {
-    console.error('[ABSmartly MC] JSON parse error in safeParseJSON:', error, {
+    logError(logger, 'JSON parse error in safeParseJSON:', error, {
       jsonPreview: json.substring(0, 100),
     })
     return fallback
