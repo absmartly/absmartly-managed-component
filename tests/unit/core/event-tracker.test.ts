@@ -45,6 +45,7 @@ describe('EventTracker', () => {
       error: vi.fn(),
       warn: vi.fn(),
       debug: vi.fn(),
+      info: vi.fn(),
     }
 
     mockClient = {

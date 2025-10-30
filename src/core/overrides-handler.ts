@@ -50,7 +50,7 @@ export class OverridesHandler {
     try {
       const cookieValue = event.client.get('absmartly_overrides')
       if (cookieValue) {
-        return safeParseJSON(cookieValue, {})
+        return safeParseJSON<OverridesMap>(cookieValue, {}) || {}
       }
     } catch (error) {
       const errorMsg = '[ABSmartly MC] Failed to parse cookie overrides'

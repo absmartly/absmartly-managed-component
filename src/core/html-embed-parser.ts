@@ -257,7 +257,9 @@ export class HTMLEmbedParser {
     }
 
     if (hasNumericVariant && hasAlphabeticVariant) {
-      errors.push('Cannot mix numeric and alphabetic variant identifiers in the same Treatment tag')
+      errors.push(
+        'Cannot mix numeric and alphabetic variant identifiers in the same Treatment tag'
+      )
     }
 
     // Check for duplicate variant identifiers

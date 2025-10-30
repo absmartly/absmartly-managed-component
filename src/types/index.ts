@@ -22,14 +22,14 @@ export interface ABSmartlySettings extends MCComponentSettings {
   COOKIE_SAMESITE?: 'Lax' | 'Strict' | 'None'
 
   // Anti-Flicker (Optional, both modes)
-  ENABLE_ANTI_FLICKER?: boolean   // Default: true
-  HIDE_SELECTOR?: string          // Default: 'body'
-  HIDE_TIMEOUT?: number           // Default: 3000
-  TRANSITION_MS?: string          // Default: '300'
+  ENABLE_ANTI_FLICKER?: boolean // Default: true
+  HIDE_SELECTOR?: string // Default: 'body'
+  HIDE_TIMEOUT?: number // Default: 3000
+  TRANSITION_MS?: string // Default: '300'
 
   // Client-Side Features (Optional, both modes)
-  INJECT_CLIENT_BUNDLE?: boolean     // Default: true
-  ENABLE_TRIGGER_ON_VIEW?: boolean   // Default: true
+  INJECT_CLIENT_BUNDLE?: boolean // Default: true
+  ENABLE_TRIGGER_ON_VIEW?: boolean // Default: true
 
   // Features
   ENABLE_WEB_VITALS?: boolean
@@ -55,16 +55,16 @@ export interface ABSmartlySettings extends MCComponentSettings {
   CONTEXT_CACHE_TTL?: number
 
   // WebCM Track Endpoint (WebCM mode only)
-  TRACK_ENDPOINT?: string         // Default: '/absmartly'
-  TRACK_BATCH_TIMEOUT?: number    // Default: 0 (no batching)
-  TRACK_BATCH_SIZE?: number       // Default: 1 (no batching)
+  TRACK_ENDPOINT?: string // Default: '/absmartly'
+  TRACK_BATCH_TIMEOUT?: number // Default: 0 (no batching)
+  TRACK_BATCH_SIZE?: number // Default: 1 (no batching)
 
   // WebCM-specific settings
-  EXCLUDED_PATHS?: string[]       // Paths to exclude from HTML manipulation
-  INJECT_CLIENT_DATA?: boolean    // Whether to inject experiment data for client-side tracking
+  EXCLUDED_PATHS?: string[] // Paths to exclude from HTML manipulation
+  INJECT_CLIENT_DATA?: boolean // Whether to inject experiment data for client-side tracking
 
   // Treatment tag processing
-  VARIANT_MAPPING?: Record<string, number>  // Map variant names to treatment numbers
+  VARIANT_MAPPING?: Record<string, number> // Map variant names to treatment numbers
 }
 
 // ABsmartly SDK Configuration
@@ -115,7 +115,10 @@ export interface ABSmartlyContext {
   peek: (experimentName: string) => number | undefined
   treatment: (experimentName: string) => number
   override: (experimentName: string, variant: number) => void
+  overrides: (experimentVariants: Record<string, number>) => void
   attributes: (attrs: Record<string, unknown>) => void
+  track: (eventName: string, properties?: Record<string, unknown>) => void
+  data: () => ABSmartlyContextData
   getData: () => ABSmartlyContextData
   getContextData: () => unknown
   publish: () => Promise<void>
@@ -225,4 +228,5 @@ export interface Logger {
   error: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
   debug: (...args: unknown[]) => void
+  info: (...args: unknown[]) => void
 }

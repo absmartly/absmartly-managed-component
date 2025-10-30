@@ -139,7 +139,7 @@ export class SDKInjector {
     if (!this.options.settings.PASS_SERVER_PAYLOAD) {
       this.options.logger.warn(
         'Client SDK initialized without server payload. API calls will be made from the browser. ' +
-        'For better security, enable PASS_SERVER_PAYLOAD to avoid exposing API endpoints to clients.'
+          'For better security, enable PASS_SERVER_PAYLOAD to avoid exposing API endpoints to clients.'
       )
     }
 
@@ -210,7 +210,7 @@ export class SDKInjector {
     if (!this.options.settings.PASS_SERVER_PAYLOAD) {
       this.options.logger.warn(
         'Client SDK initialized without server payload. API calls will be made from the browser. ' +
-        'For better security, enable PASS_SERVER_PAYLOAD to avoid exposing API endpoints to clients.'
+          'For better security, enable PASS_SERVER_PAYLOAD to avoid exposing API endpoints to clients.'
       )
     }
 

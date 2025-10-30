@@ -10,16 +10,38 @@ export interface CookieHandlerOptions {
 export class CookieHandler {
   private options: CookieHandlerOptions
 
-  constructor(settingsOrOptions: ABSmartlySettings | CookieHandlerOptions, legacyLogger?: Logger) {
+  constructor(
+    settingsOrOptions: ABSmartlySettings | CookieHandlerOptions,
+    legacyLogger?: Logger
+  ) {
     if ('settings' in settingsOrOptions && 'logger' in settingsOrOptions) {
       this.options = settingsOrOptions as CookieHandlerOptions
     } else {
       this.options = {
         settings: settingsOrOptions as ABSmartlySettings,
-        logger: legacyLogger || console
+        logger: legacyLogger || console,
       }
     }
+
+    this.applySecurityDefaults()
     this.logSecurityWarnings()
+  }
+
+  private applySecurityDefaults(): void {
+    const { settings } = this.options
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (isProduction) {
+      if (settings.COOKIE_SECURE === undefined) {
+        settings.COOKIE_SECURE = true
+      }
+      if (settings.COOKIE_HTTPONLY === undefined) {
+        settings.COOKIE_HTTPONLY = true
+      }
+      if (!settings.COOKIE_SAMESITE) {
+        settings.COOKIE_SAMESITE = 'Lax'
+      }
+    }
   }
 
   private logSecurityWarnings(): void {
@@ -28,14 +50,14 @@ export class CookieHandler {
     if (!settings.COOKIE_SECURE) {
       logger.warn(
         'COOKIE_SECURE is not enabled. Cookies will not be marked as Secure. ' +
-        'Enable this setting in production to ensure cookies are only sent over HTTPS.'
+          'Enable this setting in production to ensure cookies are only sent over HTTPS.'
       )
     }
 
     if (!settings.COOKIE_HTTPONLY) {
       logger.warn(
         'COOKIE_HTTPONLY is not enabled. Cookies will be accessible to JavaScript. ' +
-        'Enable this setting to prevent XSS attacks from stealing cookie values.'
+          'Enable this setting to prevent XSS attacks from stealing cookie values.'
       )
     }
 
@@ -43,9 +65,20 @@ export class CookieHandler {
     if (sameSite === 'None' && !settings.COOKIE_SECURE) {
       logger.error(
         'COOKIE_SAMESITE=None requires COOKIE_SECURE=true. ' +
-        'This is a security requirement to prevent CSRF attacks.'
+          'This is a security requirement to prevent CSRF attacks.'
       )
     }
+  }
+
+  private validateUTMParam(value: string): string {
+    if (value.length > 500) {
+      this.options.logger.warn(
+        '[ABSmartly MC] UTM parameter exceeds 500 characters, truncating'
+      )
+      value = value.slice(0, 500)
+    }
+
+    return value.replace(/[<>"'&]/g, '')
   }
 
   getUserId(client: Client): string {
@@ -95,7 +128,7 @@ export class CookieHandler {
     for (const key of utmKeys) {
       const value = url.searchParams.get(key)
       if (value) {
-        utmParams[key] = value
+        utmParams[key] = this.validateUTMParam(value)
       }
     }
 
@@ -143,7 +176,8 @@ export class CookieHandler {
   }
 
   setPublicUserId(client: Client, userId: string): void {
-    const cookieName = this.options.settings.PUBLIC_COOKIE_NAME || 'absmartly_public_id'
+    const cookieName =
+      this.options.settings.PUBLIC_COOKIE_NAME || 'absmartly_public_id'
     const maxAge = (this.options.settings.COOKIE_MAX_AGE || 365) * 86400
 
     client.set(cookieName, userId, {
@@ -153,7 +187,8 @@ export class CookieHandler {
   }
 
   setExpiryTimestamp(client: Client): void {
-    const cookieName = this.options.settings.EXPIRY_COOKIE_NAME || 'absmartly_expiry'
+    const cookieName =
+      this.options.settings.EXPIRY_COOKIE_NAME || 'absmartly_expiry'
     const maxAge = (this.options.settings.COOKIE_MAX_AGE || 365) * 86400
     const expiryDate = new Date(Date.now() + maxAge * 1000).toISOString()
 
@@ -164,7 +199,8 @@ export class CookieHandler {
   }
 
   getExpiryTimestamp(client: Client): string | null {
-    const cookieName = this.options.settings.EXPIRY_COOKIE_NAME || 'absmartly_expiry'
+    const cookieName =
+      this.options.settings.EXPIRY_COOKIE_NAME || 'absmartly_expiry'
     return client.get(cookieName) || null
   }
 

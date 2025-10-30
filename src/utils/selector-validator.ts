@@ -15,16 +15,19 @@ export function validateSelector(selector: string): string {
 
   if (trimmed.length > 200) {
     console.warn('[ABSmartly MC] Selector too long, using default', {
-      length: trimmed.length
+      length: trimmed.length,
     })
     return 'body'
   }
 
-  const allowedPattern = /^[a-zA-Z0-9\s\-_#.\[\]=\"':,>+~*()]+$/
+  const allowedPattern = /^[a-zA-Z0-9\s\-_#.[\]="':,>+~*()]+$/
   if (!allowedPattern.test(trimmed)) {
-    console.warn('[ABSmartly MC] Invalid characters in selector, using default', {
-      selector: trimmed
-    })
+    console.warn(
+      '[ABSmartly MC] Invalid characters in selector, using default',
+      {
+        selector: trimmed,
+      }
+    )
     return 'body'
   }
 
@@ -38,14 +41,17 @@ export function validateSelector(selector: string): string {
     /<!--/,
     /-->/,
     /\$\{/,
-    /`/
+    /`/,
   ]
 
   for (const pattern of dangerousPatterns) {
     if (pattern.test(trimmed)) {
-      console.warn('[ABSmartly MC] Dangerous pattern detected in selector, using default', {
-        selector: trimmed
-      })
+      console.warn(
+        '[ABSmartly MC] Dangerous pattern detected in selector, using default',
+        {
+          selector: trimmed,
+        }
+      )
       return 'body'
     }
   }
@@ -58,7 +64,7 @@ export function validateSelector(selector: string): string {
  */
 export function escapeSelectorForJS(selector: string): string {
   const validated = validateSelector(selector)
-  
+
   return validated
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")

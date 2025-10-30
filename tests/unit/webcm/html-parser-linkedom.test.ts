@@ -6,7 +6,9 @@ describe('HTMLParserLinkedom - XSS Security', () => {
   const mockLogger = {
     log: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn()
   }
 
   describe('HTML sanitization', () => {

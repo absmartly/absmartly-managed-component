@@ -43,6 +43,7 @@ describe('ResponseManipulator', () => {
       error: vi.fn(),
       warn: vi.fn(),
       debug: vi.fn(),
+      info: vi.fn(),
     }
 
     mockRequest = createMockRequest()

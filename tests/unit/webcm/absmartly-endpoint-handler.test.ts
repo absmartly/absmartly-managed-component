@@ -9,7 +9,7 @@ describe('ABSmartlyEndpointHandler', () => {
   let settings: ABSmartlySettings
   let logger: Logger
   let eventTracker: EventTracker
-  let mockEvent: Partial<MCEvent>
+  let mockEvent: any
 
   beforeEach(() => {
     settings = {
@@ -24,7 +24,8 @@ describe('ABSmartlyEndpointHandler', () => {
       log: vi.fn(),
       error: vi.fn(),
       warn: vi.fn(),
-      debug: vi.fn()
+      debug: vi.fn(),
+      info: vi.fn()
     }
 
     eventTracker = {
@@ -34,7 +35,7 @@ describe('ABSmartlyEndpointHandler', () => {
       trackExposure: vi.fn()
     } as any
 
-    handler = new ABSmartlyEndpointHandler(settings, eventTracker, logger)
+    handler = new ABSmartlyEndpointHandler(settings, logger)
 
     mockEvent = {
       client: {
@@ -56,7 +57,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'GET',
           json: vi.fn()
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -73,7 +74,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'GET',
           json: vi.fn()
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -90,7 +91,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'GET',
           json: vi.fn()
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -108,7 +109,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'GET',
           json: vi.fn()
-        },
+        } as any,
         return: vi.fn()
       }
     })
@@ -134,10 +135,11 @@ describe('ABSmartlyEndpointHandler', () => {
         ...mockEvent.client,
         request: {
           method: 'POST',
+          headers: { 'content-type': 'application/json' },
           json: vi.fn().mockResolvedValue({
             name: 'ExperimentView',
             experimentName: 'test_experiment'
-          })
+          } as any)
         },
         return: vi.fn()
       }
@@ -162,8 +164,9 @@ describe('ABSmartlyEndpointHandler', () => {
         ...mockEvent.client,
         request: {
           method: 'POST',
+          headers: { 'content-type': 'application/json' },
           json: vi.fn().mockRejectedValue(new Error('Invalid JSON'))
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -178,8 +181,9 @@ describe('ABSmartlyEndpointHandler', () => {
         ...mockEvent.client,
         request: {
           method: 'POST',
+          headers: { 'content-type': 'application/json' },
           json: vi.fn().mockRejectedValue(new Error('Invalid JSON'))
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -196,7 +200,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'POST',
           json: vi.fn().mockRejectedValue(new Error('Invalid JSON'))
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -213,7 +217,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'PUT',
           json: vi.fn()
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -229,7 +233,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'DELETE',
           json: vi.fn()
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -244,7 +248,7 @@ describe('ABSmartlyEndpointHandler', () => {
         ...mockEvent.client,
         request: {
           method: 'post',
-          json: vi.fn().mockResolvedValue({ name: 'test' })
+          json: vi.fn().mockResolvedValue({ name: 'test' } as any)
         },
         return: vi.fn()
       }
@@ -262,8 +266,9 @@ describe('ABSmartlyEndpointHandler', () => {
         url: new URL('https://example.com/absmartly'),
         request: {
           method: 'POST',
+          headers: { 'content-type': 'application/json' },
           json: vi.fn().mockRejectedValue(new SyntaxError('Invalid JSON'))
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -279,7 +284,7 @@ describe('ABSmartlyEndpointHandler', () => {
         request: {
           method: 'POST',
           json: vi.fn().mockRejectedValue(new Error('Invalid request'))
-        },
+        } as any,
         return: vi.fn()
       }
 
@@ -296,7 +301,7 @@ describe('ABSmartlyEndpointHandler', () => {
         ...mockEvent.client,
         request: {
           method: 'POST',
-          json: vi.fn().mockResolvedValue({ name: 'ExperimentView' })
+          json: vi.fn().mockResolvedValue({ name: 'ExperimentView' } as any)
         },
         return: vi.fn()
       }

@@ -5,7 +5,6 @@ import { escapeSelectorForJS } from '../utils/selector-validator'
 
 const SCRIPTS_DIR = join(__dirname, 'client-scripts')
 
-let cachedAntiFlicker: string | null = null
 let cachedTriggerOnView: string | null = null
 let cachedInit: string | null = null
 
@@ -25,11 +24,19 @@ export function generateClientBundle(options: ClientBundleOptions): string {
 
   logger.debug('Generating client bundle', { mode })
 
-  const antiFlickerCSS = settings.ENABLE_ANTI_FLICKER !== false ? generateAntiFlickerCSS(settings) : ''
-  const triggerOnViewScript = settings.ENABLE_TRIGGER_ON_VIEW !== false ? generateTriggerOnViewScript(mode, settings) : ''
+  const antiFlickerCSS =
+    settings.ENABLE_ANTI_FLICKER !== false
+      ? generateAntiFlickerCSS(settings)
+      : ''
+  const triggerOnViewScript =
+    settings.ENABLE_TRIGGER_ON_VIEW !== false
+      ? generateTriggerOnViewScript(mode, settings)
+      : ''
   const initScript = generateInitScript(settings)
 
-  const bundle = [antiFlickerCSS, triggerOnViewScript, initScript].filter(Boolean).join('\n')
+  const bundle = [antiFlickerCSS, triggerOnViewScript, initScript]
+    .filter(Boolean)
+    .join('\n')
 
   logger.debug('Client bundle generated', { size: bundle.length })
 
@@ -60,7 +67,10 @@ function generateAntiFlickerCSS(settings: ABSmartlySettings): string {
   `.trim()
 }
 
-function generateTriggerOnViewScript(mode: 'zaraz' | 'webcm', settings: ABSmartlySettings): string {
+function generateTriggerOnViewScript(
+  mode: 'zaraz' | 'webcm',
+  settings: ABSmartlySettings
+): string {
   const template = getTriggerOnViewTemplate()
   const enableDebug = settings.ENABLE_DEBUG || false
 
@@ -81,7 +91,10 @@ function generateInitScript(settings: ABSmartlySettings): string {
 
 function getTriggerOnViewTemplate(): string {
   if (!cachedTriggerOnView) {
-    cachedTriggerOnView = readFileSync(join(SCRIPTS_DIR, 'trigger-on-view.js'), 'utf-8')
+    cachedTriggerOnView = readFileSync(
+      join(SCRIPTS_DIR, 'trigger-on-view.js'),
+      'utf-8'
+    )
   }
   return cachedTriggerOnView
 }
@@ -91,11 +104,4 @@ function getInitTemplate(): string {
     cachedInit = readFileSync(join(SCRIPTS_DIR, 'init.js'), 'utf-8')
   }
   return cachedInit
-}
-
-function getAntiFlickerTemplate(): string {
-  if (!cachedAntiFlicker) {
-    cachedAntiFlicker = readFileSync(join(SCRIPTS_DIR, 'anti-flicker.js'), 'utf-8')
-  }
-  return cachedAntiFlicker
 }

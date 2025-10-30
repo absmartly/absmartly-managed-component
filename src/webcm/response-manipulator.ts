@@ -2,6 +2,7 @@ import { ABSmartlySettings } from '../types'
 import type { ExperimentData } from '../types'
 import { HTMLProcessor } from '../core/html-processor'
 import { Logger } from '../types'
+import { injectIntoHTML } from '../utils/html-injection'
 
 // FetchedRequest is a WebCM-specific type not exported from @managed-components/types
 // Define it locally as an extension of Response with url property
@@ -97,15 +98,8 @@ ${JSON.stringify({ experiments: experimentData })}
 </script>
     `.trim()
 
-    // Inject before </head> if possible, otherwise before </body>
-    if (html.includes('</head>')) {
-      return html.replace('</head>', `${dataScript}</head>`)
-    } else if (html.includes('</body>')) {
-      return html.replace('</body>', `${dataScript}</body>`)
-    } else {
-      // Append at the end if no head or body tags
-      return html + dataScript
-    }
+    // Use shared HTML injection utility
+    return injectIntoHTML(html, dataScript)
   }
 
   shouldManipulate(url: string): boolean {

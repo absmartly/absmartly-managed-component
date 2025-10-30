@@ -17,7 +17,9 @@ export function setupZarazMode(
   logger.log('Initializing ABsmartly Managed Component - Zaraz mode')
 
   if (setupInstances.has(manager)) {
-    logger.warn('Zaraz mode already initialized for this manager, skipping duplicate setup')
+    logger.warn(
+      'Zaraz mode already initialized for this manager, skipping duplicate setup'
+    )
     return () => {
       logger.debug('Cleanup called but already skipped duplicate setup')
     }
@@ -29,8 +31,6 @@ export function setupZarazMode(
     contextManager,
     cookieHandler,
     overridesHandler,
-    eventTracker,
-    experimentViewHandler,
     requestHandler,
     eventHandlers,
   } = createCoreManagers(manager, settings, logger)
@@ -150,7 +150,7 @@ export function setupZarazMode(
       const clientBundle = generateClientBundle({
         mode: 'zaraz',
         settings,
-        logger
+        logger,
       })
       event.client.execute(clientBundle)
 
@@ -191,6 +191,8 @@ export function setupZarazMode(
   return () => {
     setupInstances.delete(manager)
     cleanupEventHandlers()
-    logger.debug('Zaraz mode cleanup completed (note: Managed Components API does not support removeEventListener)')
+    logger.debug(
+      'Zaraz mode cleanup completed (note: Managed Components API does not support removeEventListener)'
+    )
   }
 }

@@ -18,5 +18,8 @@ export function createLogger(enableDebug: boolean): Logger {
         console.log(`${prefix} [DEBUG]`, ...args)
       }
     },
+    info: (...args: unknown[]) => {
+      console.info(prefix, ...args)
+    },
   }
 }

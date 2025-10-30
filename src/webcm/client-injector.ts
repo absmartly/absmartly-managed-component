@@ -1,8 +1,12 @@
 import { ABSmartlySettings, Logger } from '../types'
 import { generateClientBundle } from '../shared/client-bundle-generator'
+import { injectIntoHTML } from '../utils/html-injection'
 
 export class WebCMClientInjector {
-  constructor(private settings: ABSmartlySettings, private logger: Logger) {}
+  constructor(
+    private settings: ABSmartlySettings,
+    private logger: Logger
+  ) {}
 
   /**
    * Injects client-side bundle into HTML response
@@ -11,7 +15,10 @@ export class WebCMClientInjector {
    */
   injectClientBundle(html: string): string {
     // Check if client bundle injection is enabled
-    if (!this.settings.INJECT_CLIENT_BUNDLE && this.settings.INJECT_CLIENT_BUNDLE !== undefined) {
+    if (
+      !this.settings.INJECT_CLIENT_BUNDLE &&
+      this.settings.INJECT_CLIENT_BUNDLE !== undefined
+    ) {
       this.logger.debug('Client bundle injection disabled')
       return html
     }
@@ -20,28 +27,14 @@ export class WebCMClientInjector {
       const bundle = generateClientBundle({
         mode: 'webcm',
         settings: this.settings,
-        logger: this.logger
+        logger: this.logger,
       })
 
-      return this.injectIntoHTML(html, bundle)
+      return injectIntoHTML(html, bundle)
     } catch (error) {
       this.logger.error('Failed to inject client bundle:', error)
       // Return original HTML on error (graceful degradation)
       return html
-    }
-  }
-
-  /**
-   * Injects bundle before </head> or </body> tag
-   */
-  private injectIntoHTML(html: string, bundle: string): string {
-    if (html.includes('</head>')) {
-      return html.replace('</head>', `${bundle}</head>`)
-    } else if (html.includes('</body>')) {
-      return html.replace('</body>', `${bundle}</body>`)
-    } else {
-      // Append at the end if no head or body tags
-      return html + bundle
     }
   }
 }

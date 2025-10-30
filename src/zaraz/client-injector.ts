@@ -22,7 +22,7 @@ export class ClientInjector {
       const clientBundle = generateClientBundle({
         mode: 'zaraz',
         settings: this.settings,
-        logger: this.logger
+        logger: this.logger,
       })
 
       // Inject via client.execute()

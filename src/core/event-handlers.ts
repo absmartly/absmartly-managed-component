@@ -18,9 +18,13 @@ export class EventHandlers {
     const { logger } = this.options
 
     if (setupManagers.has(manager)) {
-      logger.warn('Event handlers already setup for this manager, skipping duplicate setup')
+      logger.warn(
+        'Event handlers already setup for this manager, skipping duplicate setup'
+      )
       return () => {
-        logger.debug('Cleanup called but already skipped duplicate event handler setup')
+        logger.debug(
+          'Cleanup called but already skipped duplicate event handler setup'
+        )
       }
     }
 
@@ -32,7 +36,9 @@ export class EventHandlers {
 
     return () => {
       setupManagers.delete(manager)
-      logger.debug('Event handlers cleanup completed (note: Managed Components API does not support removeEventListener)')
+      logger.debug(
+        'Event handlers cleanup completed (note: Managed Components API does not support removeEventListener)'
+      )
     }
   }
 

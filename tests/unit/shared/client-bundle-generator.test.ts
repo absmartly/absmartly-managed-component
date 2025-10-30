@@ -22,7 +22,8 @@ describe('generateClientBundle', () => {
       log: vi.fn(),
       error: vi.fn(),
       warn: vi.fn(),
-      debug: vi.fn()
+      debug: vi.fn(),
+      info: vi.fn()
     }
   })
 

@@ -84,9 +84,13 @@ export class EmbedHandler {
         return defaultContent
       }
 
-      // Return variant HTML
+      // Return variant HTML - ensure we only use string values
+      const htmlValue = variant.config?.html
+      const contentValue = variant.config?.content
       const html =
-        variant.config?.html || variant.config?.content || defaultContent
+        (typeof htmlValue === 'string' ? htmlValue : null) ||
+        (typeof contentValue === 'string' ? contentValue : null) ||
+        defaultContent
 
       this.logger.debug('Returning variant HTML for embed', {
         experimentName,
