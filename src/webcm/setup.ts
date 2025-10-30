@@ -6,19 +6,28 @@ import { HTMLProcessor } from '../core/html-processor'
 import { generateClientBundle } from '../shared/client-bundle-generator'
 import { createLogger } from '../utils/logger'
 
-// FetchedRequest is a WebCM-specific type not exported from @managed-components/types
 interface FetchedRequest extends Response {
   url: string
 }
 
+const setupInstances = new WeakMap<Manager, boolean>()
+
 export function setupWebCMMode(
   manager: Manager,
   settings: ABSmartlySettings
-): void {
+): () => void {
   const logger = createLogger(settings.ENABLE_DEBUG || false)
   logger.log('Initializing ABsmartly Managed Component - WebCM mode')
 
-  // Initialize core components (shared with Zaraz)
+  if (setupInstances.has(manager)) {
+    logger.warn('WebCM mode already initialized for this manager, skipping duplicate setup')
+    return () => {
+      logger.debug('Cleanup called but already skipped duplicate setup')
+    }
+  }
+
+  setupInstances.set(manager, true)
+
   const {
     contextManager,
     cookieHandler,
@@ -29,18 +38,14 @@ export function setupWebCMMode(
     eventHandlers,
   } = createCoreManagers(manager, settings, logger)
 
-  // WebCM-specific components
   const endpointHandler = new ABSmartlyEndpointHandler(settings, eventTracker, logger)
 
-  // Intercept requests to handle /absmartly endpoint and manipulate responses
-  manager.addEventListener('request', async (event: MCEvent) => {
-    // Handle /absmartly endpoint for track requests
+  const requestListener = async (event: MCEvent) => {
     const isEndpointHandled = await endpointHandler.handleRequest(event)
     if (isEndpointHandled) {
       return
     }
 
-    // Check if URL should be manipulated based on excluded paths
     const excludedPaths = settings.EXCLUDED_PATHS || []
     let shouldSkip = false
     for (const path of excludedPaths) {
@@ -66,10 +71,8 @@ export function setupWebCMMode(
     }
 
     try {
-      // Get response HTML
       const html = await result.fetchResult.text()
 
-      // Only process HTML responses
       const contentType = result.fetchResult.headers?.get('content-type') || ''
       if (!contentType.includes('text/html')) {
         logger.debug('Skipping non-HTML response', { contentType })
@@ -77,15 +80,13 @@ export function setupWebCMMode(
         return
       }
 
-      // Process HTML with Treatment tags and DOM changes (zero flicker!)
       const processor = new HTMLProcessor({
         settings,
         logger,
-        useLinkedom: true, // WebCM uses linkedom for full CSS selector support
+        useLinkedom: true,
       })
       let processedHTML = processor.processHTML(html, result.experimentData)
 
-      // Inject experiment data for client-side tracking (optional)
       const injectClientData = settings.INJECT_CLIENT_DATA
       if (injectClientData) {
         const dataScript = `
@@ -103,7 +104,6 @@ ${JSON.stringify({ experiments: result.experimentData })}
         }
       }
 
-      // Generate and inject client bundle (anti-flicker + trigger-on-view + init)
       if (settings.INJECT_CLIENT_BUNDLE !== false) {
         try {
           const bundle = generateClientBundle({
@@ -121,29 +121,33 @@ ${JSON.stringify({ experiments: result.experimentData })}
           }
         } catch (error) {
           logger.error('Failed to inject client bundle:', error)
-          // Continue with processed HTML if bundle injection fails
         }
       }
 
-      // Create final response
       const finalResponse = new Response(processedHTML, {
         status: result.fetchResult.status,
         statusText: result.fetchResult.statusText,
         headers: result.fetchResult.headers
       })
 
-      // Return final response
       event.client.return(finalResponse)
     } catch (error) {
       logger.error('Response manipulation error:', error)
       await requestHandler.handleRequestError(event)
     }
-  })
+  }
 
-  // Set up event handlers (track, event, ecommerce)
-  eventHandlers.setupEventListeners(manager)
+  manager.addEventListener('request', requestListener)
+
+  const cleanupEventHandlers = eventHandlers.setupEventListeners(manager)
 
   logger.log(
     'ABsmartly Managed Component - WebCM mode initialized successfully'
   )
+
+  return () => {
+    setupInstances.delete(manager)
+    cleanupEventHandlers()
+    logger.debug('WebCM mode cleanup completed (note: Managed Components API does not support removeEventListener)')
+  }
 }

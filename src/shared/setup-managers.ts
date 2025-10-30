@@ -32,8 +32,8 @@ export function createCoreManagers(
   logger: Logger
 ): CoreManagers {
   const contextManager = new ContextManager(manager, settings, logger)
-  const cookieHandler = new CookieHandler(settings)
-  const overridesHandler = new OverridesHandler()
+  const cookieHandler = new CookieHandler({ settings, logger })
+  const overridesHandler = new OverridesHandler(logger)
   const eventTracker = new EventTracker(
     manager,
     contextManager,
