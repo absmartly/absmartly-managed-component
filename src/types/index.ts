@@ -17,6 +17,9 @@ export interface ABSmartlySettings extends MCComponentSettings {
   EXPIRY_COOKIE_NAME?: string
   COOKIE_MAX_AGE?: number
   COOKIE_DOMAIN?: string
+  COOKIE_HTTPONLY?: boolean
+  COOKIE_SECURE?: boolean
+  COOKIE_SAMESITE?: 'Lax' | 'Strict' | 'None'
 
   // Anti-Flicker (Optional, both modes)
   ENABLE_ANTI_FLICKER?: boolean   // Default: true
