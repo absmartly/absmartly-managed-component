@@ -13,10 +13,10 @@ describe('RequestHandler', () => {
   let settings: ABSmartlySettings
   let logger: Logger
   let handler: RequestHandler
-  let mockClient: Partial<Client>
-  let mockEvent: Partial<MCEvent>
+  let mockClient: any
+  let mockEvent: any
   let mockContext: any
-  let mockResponse: Response
+  let mockResponse: any
 
   beforeEach(() => {
     mockContext = {
@@ -251,7 +251,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle requests with query parameters', async () => {
-      mockClient.url = new URL('https://example.com/page?utm_source=test&absmartly=exp:1')
+      ;mockClient.url = new URL('https://example.com/page?utm_source=test&absmartly=exp:1')
 
       await handler.handleRequest(mockEvent as MCEvent)
 
@@ -263,7 +263,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle requests without user agent', async () => {
-      mockClient.userAgent = undefined
+      ;mockClient.userAgent = undefined
 
       await handler.handleRequest(mockEvent as MCEvent)
 
@@ -275,7 +275,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle requests without IP', async () => {
-      mockClient.ip = undefined
+      ;mockClient.ip = undefined
 
       await handler.handleRequest(mockEvent as MCEvent)
 
@@ -402,7 +402,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle request with URL parameters and cookies', async () => {
-      mockClient.url = new URL('https://example.com/page?utm_source=email&utm_campaign=test')
+      ;mockClient.url = new URL('https://example.com/page?utm_source=email&utm_campaign=test')
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -438,7 +438,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle different response content types', async () => {
-      mockResponse.headers = new Headers({ 'content-type': 'application/json' })
+      ;mockResponse.headers = new Headers({ 'content-type': 'application/json' })
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -447,8 +447,8 @@ describe('RequestHandler', () => {
     })
 
     it('should handle redirect responses', async () => {
-      mockResponse.status = 302
-      mockResponse.headers = new Headers({ 'location': 'https://example.com/redirect' })
+      ;mockResponse.status = 302
+      ;mockResponse.headers = new Headers({ 'location': 'https://example.com/redirect' })
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -457,7 +457,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle 404 responses', async () => {
-      mockResponse.status = 404
+      ;mockResponse.status = 404
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -466,7 +466,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle 500 error responses', async () => {
-      mockResponse.status = 500
+      ;mockResponse.status = 500
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -477,7 +477,7 @@ describe('RequestHandler', () => {
 
   describe('edge cases', () => {
     it('should handle malformed URLs gracefully', async () => {
-      mockClient.url = new URL('https://example.com/path with spaces')
+      ;mockClient.url = new URL('https://example.com/path with spaces')
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -485,8 +485,8 @@ describe('RequestHandler', () => {
     })
 
     it('should handle very long URLs', async () => {
-      const longPath = 'a'.repeat(2000)
-      mockClient.url = new URL(`https://example.com/${longPath}`)
+      const longPath: string = 'a'.repeat(2000)
+      ;mockClient.url = new URL(`https://example.com/${longPath}`)
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -494,7 +494,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle special characters in URL', async () => {
-      mockClient.url = new URL('https://example.com/path?q=%E2%9C%93&test=123')
+      ;mockClient.url = new URL('https://example.com/path?q=%E2%9C%93&test=123')
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
@@ -509,7 +509,7 @@ describe('RequestHandler', () => {
     })
 
     it('should handle undefined event payload', async () => {
-      mockEvent.payload = undefined
+      ;mockEvent.payload = undefined
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 

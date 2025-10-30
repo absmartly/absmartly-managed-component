@@ -13,8 +13,8 @@ describe('ExperimentViewHandler', () => {
   let logger: Logger
   let handler: ExperimentViewHandler
   let mockContext: any
-  let mockClient: Partial<Client>
-  let mockEvent: Partial<MCEvent>
+  let mockClient: any
+  let mockEvent: any
 
   beforeEach(() => {
     mockContext = {
