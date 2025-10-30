@@ -2,6 +2,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { ABSmartlySettings, Logger } from '../types'
 import { escapeSelectorForJS } from '../utils/selector-validator'
+import { getValidatedNumericConfig } from '../utils/config-validator'
 
 const SCRIPTS_DIR = join(__dirname, 'client-scripts')
 
@@ -26,7 +27,7 @@ export function generateClientBundle(options: ClientBundleOptions): string {
 
   const antiFlickerCSS =
     settings.ENABLE_ANTI_FLICKER !== false
-      ? generateAntiFlickerCSS(settings)
+      ? generateAntiFlickerCSS(settings, logger)
       : ''
   const triggerOnViewScript =
     settings.ENABLE_TRIGGER_ON_VIEW !== false
@@ -43,9 +44,12 @@ export function generateClientBundle(options: ClientBundleOptions): string {
   return bundle
 }
 
-function generateAntiFlickerCSS(settings: ABSmartlySettings): string {
+function generateAntiFlickerCSS(
+  settings: ABSmartlySettings,
+  logger: Logger
+): string {
   const selector = escapeSelectorForJS(settings.HIDE_SELECTOR || 'body')
-  const timeout = settings.HIDE_TIMEOUT || 3000
+  const timeout = getValidatedNumericConfig(settings, 'HIDE_TIMEOUT', logger)
   const transitionMs = settings.TRANSITION_MS || '300'
 
   return `

@@ -12,6 +12,7 @@ import {
   Logger,
 } from '../types'
 import { generateSessionId } from '../utils/serializer'
+import { getValidatedNumericConfig } from '../utils/config-validator'
 
 interface CachedContextEntry {
   data: unknown
@@ -36,8 +37,6 @@ interface CircuitBreakerConfig {
   resetTimeout: number
 }
 
-const DEFAULT_SDK_TIMEOUT_MS = 2000
-const DEFAULT_CACHE_TTL_MS = 300000
 const MIN_CLEANUP_INTERVAL_MS = 60000
 const DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
 const DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS = 60000
@@ -73,13 +72,19 @@ export class ContextManager {
       application: this.settings.ABSMARTLY_APPLICATION,
     })
 
+    const sdkTimeout = getValidatedNumericConfig(
+      this.settings,
+      'SDK_TIMEOUT',
+      this.logger
+    )
+
     const sdk = new SDK({
       endpoint: this.settings.ABSMARTLY_ENDPOINT,
       apiKey: this.settings.ABSMARTLY_API_KEY,
       environment: this.settings.ABSMARTLY_ENVIRONMENT,
       application: this.settings.ABSMARTLY_APPLICATION,
       retries: 1,
-      timeout: this.settings.SDK_TIMEOUT || DEFAULT_SDK_TIMEOUT_MS,
+      timeout: sdkTimeout,
     })
 
     return sdk
@@ -139,11 +144,12 @@ export class ContextManager {
   }
 
   private getContextCacheTTL(): number {
-    const ttl = this.settings.CONTEXT_CACHE_TTL
-    if (ttl && ttl > 0) {
-      return ttl * 1000
-    }
-    return DEFAULT_CACHE_TTL_MS
+    const ttlSeconds = getValidatedNumericConfig(
+      this.settings,
+      'CONTEXT_CACHE_TTL',
+      this.logger
+    )
+    return ttlSeconds * 1000
   }
 
   private recordSuccess(): void {
@@ -356,12 +362,10 @@ export class ContextManager {
       return {}
     }
 
-    // If config is already an object, return it
     if (typeof config === 'object' && config !== null) {
       return config as { domChanges?: DOMChange[] }
     }
 
-    // If config is a string, try to parse it
     if (typeof config === 'string') {
       try {
         const parsed = JSON.parse(config)
@@ -371,14 +375,13 @@ export class ContextManager {
           '[ABSmartly MC] Failed to parse variant.config JSON',
           {
             error: error instanceof Error ? error.message : String(error),
-            config: config.substring(0, 100), // Log first 100 chars for debugging
+            config: config.substring(0, 100),
           }
         )
         return {}
       }
     }
 
-    // Unexpected type
     this.logger.warn('[ABSmartly MC] Unexpected variant.config type', {
       type: typeof config,
     })

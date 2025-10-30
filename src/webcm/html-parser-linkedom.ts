@@ -22,29 +22,35 @@ export class HTMLParserLinkedom {
   ) {}
 
   applyChanges(changes: DOMChange[]): string {
-    // Parse HTML to real DOM
-    const { document } = parseHTML(this.html)
+    try {
+      const { document } = parseHTML(this.html)
 
-    for (const change of changes) {
-      try {
-        this.applyChange(document, change)
-      } catch (error) {
-        this.logger?.error(
-          '[ABSmartly MC] Failed to apply change:',
-          error,
-          change
-        )
+      for (const change of changes) {
+        try {
+          this.applyChange(document, change)
+        } catch (error) {
+          this.logger?.error(
+            '[ABSmartly MC] Failed to apply change:',
+            error,
+            change
+          )
+        }
       }
-    }
 
-    // Return serialized HTML
-    return document.toString()
+      return document.toString()
+    } catch (error) {
+      this.logger?.error('[ABSmartly MC] linkedom parsing failed:', {
+        error: error instanceof Error ? error.message : String(error),
+        htmlLength: this.html.length,
+        htmlPreview: this.html.substring(0, 200),
+      })
+      throw error
+    }
   }
 
   private applyChange(document: LinkedomDocument, change: DOMChange): void {
     const { selector } = change
 
-    // Use real querySelectorAll - supports all CSS selectors!
     const elements = document.querySelectorAll(selector)
 
     if (elements.length === 0) {
@@ -55,7 +61,6 @@ export class HTMLParserLinkedom {
       return
     }
 
-    // Apply change to all matching elements
     for (const element of elements) {
       this.applyChangeToElement(document, element, change)
     }
@@ -66,7 +71,6 @@ export class HTMLParserLinkedom {
     element: LinkedomElement,
     change: DOMChange
   ): void {
-    // Null safety guard
     if (!element) {
       this.logger?.warn('[ABSmartly MC] Element is null, skipping change')
       return
@@ -106,7 +110,6 @@ export class HTMLParserLinkedom {
         break
 
       case 'javascript':
-        // Can't execute JavaScript server-side, skip
         this.logger?.warn(
           '[ABSmartly MC] JavaScript changes not supported server-side:',
           change
@@ -138,20 +141,16 @@ export class HTMLParserLinkedom {
     if (!element || !styles) return
 
     if (typeof styles === 'string') {
-      // CSS string: "color: red; font-size: 14px"
       element.setAttribute('style', styles)
     } else if (typeof styles === 'object') {
-      // Object: { color: 'red', fontSize: '14px' }
       const currentStyle = element.getAttribute('style') || ''
       const styleMap = this.parseStyleString(currentStyle)
 
-      // Merge new styles
       for (const [key, value] of Object.entries(styles)) {
         const cssKey = camelToKebab(key)
         styleMap[cssKey] = String(value ?? '')
       }
 
-      // Rebuild style string
       const newStyle = Object.entries(styleMap)
         .map(([k, v]) => `${k}: ${v}`)
         .join('; ')
@@ -170,7 +169,6 @@ export class HTMLParserLinkedom {
     } else if (change.action === 'remove') {
       classList.remove(String(change.value ?? ''))
     } else {
-      // Replace entire class attribute
       element.className = String(change.value ?? '')
     }
   }
@@ -192,7 +190,6 @@ export class HTMLParserLinkedom {
       if (sanitizedValue !== '') {
         element.setAttribute(change.name, sanitizedValue)
       } else {
-        // Don't set empty/blocked attributes
         element.removeAttribute(change.name)
       }
     }
@@ -221,16 +218,13 @@ export class HTMLParserLinkedom {
       return
     }
 
-    // Null safety guard for parentNode
     if (!target.parentNode) {
       this.logger?.warn('[ABSmartly MC] Target has no parent node')
       return
     }
 
-    // Remove from current position
     element.remove()
 
-    // Insert at target position using shared utility
     const position = (change.position as InsertPosition) || 'append'
     insertElementAtPosition(position, element, target)
   }
@@ -249,18 +243,15 @@ export class HTMLParserLinkedom {
       return
     }
 
-    // Create new element with null safety guard
     const tagName = String((config.tag as string) || 'div')
     const newElement = document.createElement(tagName)
 
-    // Set HTML content (sanitized to prevent XSS)
     if (config.html && typeof config.html === 'string') {
       newElement.innerHTML = sanitizeHTMLContent(config.html)
     } else if (config.html) {
       newElement.innerHTML = sanitizeHTMLContent(String(config.html))
     }
 
-    // Set attributes (sanitized to prevent XSS)
     if (config.attributes) {
       for (const [name, value] of Object.entries(config.attributes)) {
         const sanitizedValue = sanitizeAttributeValue(
@@ -274,7 +265,6 @@ export class HTMLParserLinkedom {
       }
     }
 
-    // Determine target element
     let target = parentElement
     if (change.target) {
       const targetElement = document.querySelector(change.target)
@@ -283,7 +273,6 @@ export class HTMLParserLinkedom {
       }
     }
 
-    // Null safety guard for parentNode
     if (
       !target.parentNode &&
       (change.position === 'before' || change.position === 'after')
@@ -291,35 +280,29 @@ export class HTMLParserLinkedom {
       this.logger?.warn(
         '[ABSmartly MC] Target has no parent node for before/after position'
       )
-      // Fall back to append
       target.appendChild(newElement)
       return
     }
 
-    // Insert at specified position using shared utility
     const position = (change.position as InsertPosition) || 'append'
     insertElementAtPosition(position, newElement, target)
   }
 
   private addStyleRules(document: LinkedomDocument, rules: string): void {
-    // Find or create style element
     let styleElement = document.querySelector('#absmartly-styles')
 
     if (!styleElement) {
       styleElement = document.createElement('style')
       styleElement.setAttribute('id', 'absmartly-styles')
 
-      // Null safety guard - Insert in head if it exists
       const head = document.querySelector('head')
       if (head) {
         head.appendChild(styleElement)
       } else {
-        // Otherwise insert at beginning of body or document
         const body = document.querySelector('body')
         if (body) {
           body.insertBefore(styleElement, body.firstChild)
         } else if (document.documentElement) {
-          // Null safety guard for documentElement
           document.documentElement.insertBefore(
             styleElement,
             document.documentElement.firstChild
@@ -328,11 +311,8 @@ export class HTMLParserLinkedom {
       }
     }
 
-    // Append rules
     styleElement.textContent = (styleElement.textContent || '') + '\n' + rules
   }
-
-  // Utility functions
 
   private parseStyleString(styleString: string): Record<string, string> {
     const styles: Record<string, string> = {}
