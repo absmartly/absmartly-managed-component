@@ -2,7 +2,6 @@ import { Manager, MCEvent } from '@managed-components/types'
 import { ABSmartlySettings } from '../types'
 import { createCoreManagers } from '../shared/setup-managers'
 import { ABSmartlyEndpointHandler } from './absmartly-endpoint-handler'
-import { HTMLProcessor } from '../core/html-processor'
 import { createLogger } from '../utils/logger'
 import { injectIntoHTML } from '../utils/html-injection'
 import {
@@ -14,6 +13,11 @@ import {
   injectClientBundleIntoHTML,
   isHTMLResponse,
 } from '../shared/injection-helpers'
+import {
+  processHTMLWithExperiments,
+  createResponseFromHTML,
+  shouldExcludePath,
+} from '../shared/response-processors'
 
 export function setupWebCMMode(
   manager: Manager,
@@ -40,19 +44,13 @@ export function setupWebCMMode(
       return
     }
 
-    const excludedPaths = settings.EXCLUDED_PATHS || []
-    let shouldSkip = false
-    for (const path of excludedPaths) {
-      if (event.client.url.toString().includes(path)) {
-        logger.debug('URL excluded from manipulation', {
-          url: event.client.url.toString(),
-          path,
-        })
-        shouldSkip = true
-        break
-      }
-    }
-    if (shouldSkip) {
+    if (
+      shouldExcludePath(
+        event.client.url.toString(),
+        settings.EXCLUDED_PATHS,
+        logger
+      )
+    ) {
       return
     }
 
@@ -82,12 +80,12 @@ export function setupWebCMMode(
         return
       }
 
-      const processor = new HTMLProcessor({
+      let processedHTML = processHTMLWithExperiments(
+        html,
+        result.experimentData,
         settings,
-        logger,
-        useLinkedom: true,
-      })
-      let processedHTML = processor.processHTML(html, result.experimentData)
+        logger
+      )
 
       const injectClientData = settings.INJECT_CLIENT_DATA
       if (injectClientData) {
@@ -106,11 +104,10 @@ ${JSON.stringify({ experiments: result.experimentData })}
         logger
       )
 
-      const finalResponse = new Response(processedHTML, {
-        status: result.fetchResult.status,
-        statusText: result.fetchResult.statusText,
-        headers: result.fetchResult.headers,
-      })
+      const finalResponse = createResponseFromHTML(
+        processedHTML,
+        result.fetchResult as Response
+      )
 
       event.client.return(finalResponse)
     } catch (error) {

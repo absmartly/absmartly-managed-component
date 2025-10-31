@@ -1,7 +1,6 @@
 import { Manager, MCEvent } from '@managed-components/types'
 import { ABSmartlySettings } from '../types'
 import { createCoreManagers } from '../shared/setup-managers'
-import { HTMLProcessor } from '../core/html-processor'
 import { SDKInjector } from '../core/sdk-injector'
 import { createLogger } from '../utils/logger'
 import {
@@ -15,6 +14,10 @@ import {
   injectClientBundleViaExecute,
   isHTMLResponse,
 } from '../shared/injection-helpers'
+import {
+  processHTMLWithExperiments,
+  createResponseFromHTML,
+} from '../shared/response-processors'
 
 export function setupZarazMode(
   manager: Manager,
@@ -60,22 +63,16 @@ export function setupZarazMode(
 
       let html = await response.text()
 
-      const processor = new HTMLProcessor({
+      html = processHTMLWithExperiments(
+        html,
+        result.experimentData,
         settings,
-        logger,
-        useLinkedom: true,
-      })
-      html = processor.processHTML(html, result.experimentData)
+        logger
+      )
 
       logger.debug('HTML processing completed (Treatment tags + DOM changes)')
 
-      event.client.return(
-        new Response(html, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        })
-      )
+      event.client.return(createResponseFromHTML(html, response))
     } catch (error) {
       logger.error('Request handler error for Treatment tags:', error)
       await requestHandler.handleRequestError(event)
