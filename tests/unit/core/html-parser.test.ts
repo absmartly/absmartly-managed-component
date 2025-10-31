@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { HTMLParser } from '../../../src/webcm/html-parser'
+import { HTMLParser } from '../../../src/core/html-parser'
 import { DOMChange } from '../../../src/types'
 
 describe('HTMLParser', () => {

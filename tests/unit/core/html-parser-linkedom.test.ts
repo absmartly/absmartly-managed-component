@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { HTMLParserLinkedom } from '../../../src/webcm/html-parser-linkedom'
+import { HTMLParserLinkedom } from '../../../src/core/html-parser-linkedom'
 import { DOMChange } from '../../../src/types'
 
 describe('HTMLParserLinkedom - XSS Security', () => {

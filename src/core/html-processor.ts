@@ -1,6 +1,6 @@
 import { ABSmartlySettings, DOMChange, ExperimentData } from '../types'
-import { HTMLParser } from '../webcm/html-parser'
-import { HTMLParserLinkedom } from '../webcm/html-parser-linkedom'
+import { HTMLParser } from './html-parser'
+import { HTMLParserLinkedom } from './html-parser-linkedom'
 import { HTMLEmbedParser } from './html-embed-parser'
 import { Logger } from '../types'
 
