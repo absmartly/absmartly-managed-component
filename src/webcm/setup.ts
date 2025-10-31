@@ -3,11 +3,17 @@ import { ABSmartlySettings } from '../types'
 import { createCoreManagers } from '../shared/setup-managers'
 import { ABSmartlyEndpointHandler } from './absmartly-endpoint-handler'
 import { HTMLProcessor } from '../core/html-processor'
-import { generateClientBundle } from '../shared/client-bundle-generator'
 import { createLogger } from '../utils/logger'
 import { injectIntoHTML } from '../utils/html-injection'
-
-const setupInstances = new WeakMap<Manager, boolean>()
+import {
+  isDuplicateSetup,
+  markCleanedUp,
+  createNoOpCleanup,
+} from '../shared/setup-helpers'
+import {
+  injectClientBundleIntoHTML,
+  isHTMLResponse,
+} from '../shared/injection-helpers'
 
 export function setupWebCMMode(
   manager: Manager,
@@ -16,16 +22,9 @@ export function setupWebCMMode(
   const logger = createLogger(settings.ENABLE_DEBUG || false)
   logger.log('Initializing ABsmartly Managed Component - WebCM mode')
 
-  if (setupInstances.has(manager)) {
-    logger.warn(
-      'WebCM mode already initialized for this manager, skipping duplicate setup'
-    )
-    return () => {
-      logger.debug('Cleanup called but already skipped duplicate setup')
-    }
+  if (isDuplicateSetup(manager, logger)) {
+    return createNoOpCleanup(logger)
   }
-
-  setupInstances.set(manager, true)
 
   const { requestHandler, eventHandlers } = createCoreManagers(
     manager,
@@ -77,9 +76,8 @@ export function setupWebCMMode(
 
       const html = await result.fetchResult.text()
 
-      const contentType = result.fetchResult.headers?.get('content-type') || ''
-      if (!contentType.includes('text/html')) {
-        logger.debug('Skipping non-HTML response', { contentType })
+      if (!isHTMLResponse(result.fetchResult as Response)) {
+        logger.debug('Skipping non-HTML response')
         event.client.return(result.fetchResult as unknown as Response)
         return
       }
@@ -102,19 +100,11 @@ ${JSON.stringify({ experiments: result.experimentData })}
         processedHTML = injectIntoHTML(processedHTML, dataScript)
       }
 
-      if (settings.INJECT_CLIENT_BUNDLE !== false) {
-        try {
-          const bundle = generateClientBundle({
-            mode: 'webcm',
-            settings,
-            logger,
-          })
-
-          processedHTML = injectIntoHTML(processedHTML, bundle)
-        } catch (error) {
-          logger.error('Failed to inject client bundle:', error)
-        }
-      }
+      processedHTML = injectClientBundleIntoHTML(
+        processedHTML,
+        settings,
+        logger
+      )
 
       const finalResponse = new Response(processedHTML, {
         status: result.fetchResult.status,
@@ -138,7 +128,7 @@ ${JSON.stringify({ experiments: result.experimentData })}
   )
 
   return () => {
-    setupInstances.delete(manager)
+    markCleanedUp(manager)
     cleanupEventHandlers()
     logger.debug(
       'WebCM mode cleanup completed (note: Managed Components API does not support removeEventListener)'

@@ -3,11 +3,18 @@ import { ABSmartlySettings } from '../types'
 import { createCoreManagers } from '../shared/setup-managers'
 import { HTMLProcessor } from '../core/html-processor'
 import { SDKInjector } from '../core/sdk-injector'
-import { generateClientBundle } from '../shared/client-bundle-generator'
 import { createLogger } from '../utils/logger'
-import { escapeSelectorForJS } from '../utils/selector-validator'
-
-const setupInstances = new WeakMap<Manager, boolean>()
+import {
+  isDuplicateSetup,
+  markCleanedUp,
+  createNoOpCleanup,
+} from '../shared/setup-helpers'
+import {
+  injectFailsafe,
+  injectDebugInfo,
+  injectClientBundleViaExecute,
+  isHTMLResponse,
+} from '../shared/injection-helpers'
 
 export function setupZarazMode(
   manager: Manager,
@@ -16,16 +23,9 @@ export function setupZarazMode(
   const logger = createLogger(settings.ENABLE_DEBUG || false)
   logger.log('Initializing ABsmartly Managed Component - Zaraz mode')
 
-  if (setupInstances.has(manager)) {
-    logger.warn(
-      'Zaraz mode already initialized for this manager, skipping duplicate setup'
-    )
-    return () => {
-      logger.debug('Cleanup called but already skipped duplicate setup')
-    }
+  if (isDuplicateSetup(manager, logger)) {
+    return createNoOpCleanup(logger)
   }
-
-  setupInstances.set(manager, true)
 
   const {
     contextManager,
@@ -52,9 +52,8 @@ export function setupZarazMode(
     try {
       const response = result.fetchResult as Response
 
-      const contentType = response.headers?.get('content-type') || ''
-      if (!contentType.includes('text/html')) {
-        logger.debug('Skipping non-HTML response', { contentType })
+      if (!isHTMLResponse(response)) {
+        logger.debug('Skipping non-HTML response')
         event.client.return(response)
         return
       }
@@ -137,46 +136,14 @@ export function setupZarazMode(
         }
       }
 
-      if (settings.ENABLE_DEBUG) {
-        const debugScript = `
-        <script>
-          console.log('[ABSmartly] Zaraz mode initialized');
-          console.log('[ABSmartly] Settings:', {
-            deployment: '${settings.DEPLOYMENT_MODE}',
-            antiFlicker: ${settings.ENABLE_ANTI_FLICKER !== false},
-            triggerOnView: ${settings.ENABLE_TRIGGER_ON_VIEW !== false}
-          });
-        </script>
-        `
-        event.client.execute(debugScript)
-      }
-
-      const clientBundle = generateClientBundle({
-        mode: 'zaraz',
-        settings,
-        logger,
-      })
-      event.client.execute(clientBundle)
+      injectDebugInfo(event, settings, logger)
+      injectClientBundleViaExecute(event, settings, logger)
 
       await contextManager.publishContext(context)
       logger.debug('Exposures published')
     } catch (error) {
       logger.error('Pageview handler error:', error)
-
-      const selector = escapeSelectorForJS(settings.HIDE_SELECTOR || 'body')
-      const failsafeScript = `
-      <script>
-        setTimeout(function() {
-          var el = document.querySelector('${selector}');
-          if (el) el.style.opacity = '1';
-        }, 100);
-      </script>
-      `
-      try {
-        event.client.execute(failsafeScript)
-      } catch (e) {
-        logger.error('Failed to inject failsafe:', e)
-      }
+      injectFailsafe(event, settings, logger)
     }
   }
 
@@ -193,7 +160,7 @@ export function setupZarazMode(
   )
 
   return () => {
-    setupInstances.delete(manager)
+    markCleanedUp(manager)
     cleanupEventHandlers()
     logger.debug(
       'Zaraz mode cleanup completed (note: Managed Components API does not support removeEventListener)'

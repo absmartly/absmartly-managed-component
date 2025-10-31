@@ -87,7 +87,8 @@ export class TrackBridge {
 
   async handleTrackRequest(
     body: PublishData,
-    clientId?: string
+    clientId?: string,
+    originalUserAgent?: string
   ): Promise<Response> {
     try {
       const { returnImmediate, logger } = this.options
@@ -122,7 +123,7 @@ export class TrackBridge {
       logger.debug('Track request received', { returnImmediate })
 
       if (returnImmediate) {
-        this.forwardToABsmartly(body).catch(error => {
+        this.forwardToABsmartly(body, originalUserAgent).catch(error => {
           logger.error('Failed to forward track request to ABsmartly:', error)
         })
 
@@ -136,8 +137,15 @@ export class TrackBridge {
     }
   }
 
-  private async forwardToABsmartly(body: PublishData): Promise<void> {
+  private async forwardToABsmartly(
+    body: PublishData,
+    originalUserAgent?: string
+  ): Promise<void> {
     const { apiEndpoint, apiKey, logger } = this.options
+
+    const xAgent = originalUserAgent
+      ? `${originalUserAgent} via ABSmartly MC`
+      : 'ABSmartly MC'
 
     try {
       const response = await fetch(`${apiEndpoint}/context`, {
@@ -145,7 +153,7 @@ export class TrackBridge {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          'X-Agent': 'ABSmartly MC',
+          'X-Agent': xAgent,
           'X-API-Key': apiKey,
         },
         body: JSON.stringify(body),

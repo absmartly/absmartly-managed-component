@@ -126,19 +126,19 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 
 ### Mode Comparison
 
-| Feature | Zaraz Mode | WebCM Mode |
-|---------|------------|------------|
-| **Deployment** | Via Cloudflare Dashboard | Custom proxy/infrastructure |
-| **Setup Complexity** | Easy (few clicks) | Advanced (requires proxy setup) |
-| **HTML Processing** | ✅ Server-side (linkedom) | ✅ Server-side (linkedom) |
-| **CSS Selectors** | ✅ Full support | ✅ Full support |
-| **DOM Changes** | ✅ Server-side | ✅ Server-side |
-| **Treatment Tags** | ✅ Server-side | ✅ Server-side |
-| **Flicker** | 0ms | 0ms |
-| **On-View Tracking** | ✅ Yes | ✅ Yes |
-| **Client-side Bundle** | ✅ ~2-2.5KB (anti-flicker, trigger-on-view) | ✅ ~2-2.5KB (same bundle) |
-| **Event Tracking** | Pageview, track, event, ecommerce | track, event, ecommerce |
-| **Use Case** | Easy deployment, Zaraz users | Custom infrastructure, zero client JS |
+|  Feature               | Zaraz Mode                              | WebCM Mode                            |
+|------------------------|-----------------------------------------|---------------------------------------|
+| **Deployment**         | Via Cloudflare Dashboard                | Custom proxy/infrastructure           |
+| **Setup Complexity**   | Easy (few clicks)                       | Advanced (req. proxy setup)           |
+| **HTML Processing**    | Server-side (linkedom)                  | Server-side (linkedom)                |
+| **CSS Selectors**      | Full support                            | Full support                          |
+| **DOM Changes**        | Server-side                             | Server-side                           |
+| **Treatment Tags**     | Server-side                             | Server-side                           |
+| **Flicker**            | 0ms                                     | 0ms                                   |
+| **On-View Tracking**   | Yes                                     | Yes                                   |
+| **Client-side Bundle** | ~2-2.5KB (anti-flicker, trigger-on-view)| ~2-2.5KB (same bundle)                |
+| **Event Tracking**     | Pageview, track, event, ecommerce       | track, event, ecommerce               |
+| **Use Case**           | Easy deployment, Zaraz users            | Custom infrastructure, zero client JS |
 
 ### Key Differences Explained
 
@@ -150,7 +150,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 - ✅ Both inject the same lightweight client bundle (~2-2.5KB for anti-flicker + trigger-on-view)
 - ✅ Both handle the same event types
 
-**The ONLY differences now are:**
+**The ONLY differences are:**
 
 1. **Deployment Method**
    - **Zaraz**: Deploy via Cloudflare Dashboard in minutes (no infrastructure changes)

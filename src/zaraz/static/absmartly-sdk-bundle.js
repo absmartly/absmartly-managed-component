@@ -56,11 +56,7 @@ window.ABsmartlyInit = function(config, unitId, serverData, overrides) {
 
     // Apply experiment overrides (QA mode)
     if (overrides && Object.keys(overrides).length > 0) {
-      for (var exp in overrides) {
-        if (overrides.hasOwnProperty(exp)) {
-          context.override(exp, overrides[exp]);
-        }
-      }
+      context.overrides(overrides);
     }
 
     // Make context globally available

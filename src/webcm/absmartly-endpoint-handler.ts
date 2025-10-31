@@ -93,9 +93,13 @@ export class ABSmartlyEndpointHandler {
           })
 
           const clientId = event.client.ip || 'unknown'
+          const originalUserAgent =
+            client.request.headers?.['x-agent'] ||
+            client.request.headers?.['user-agent']
           const response = await this.trackBridge.handleTrackRequest(
             body as PublishData,
-            clientId
+            clientId,
+            originalUserAgent
           )
 
           event.client.return(response)
