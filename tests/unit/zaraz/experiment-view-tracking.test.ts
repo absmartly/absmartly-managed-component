@@ -61,12 +61,6 @@ vi.mock('../../../src/zaraz/client-injector', () => ({
   })),
 }))
 
-vi.mock('../../../src/zaraz/embed-handler', () => ({
-  EmbedHandler: vi.fn().mockImplementation(() => ({
-    setup: vi.fn(),
-  })),
-}))
-
 describe('ExperimentView Tracking', () => {
   let manager: Manager
   let trackListeners: ((event: MCEvent) => Promise<void>)[]
