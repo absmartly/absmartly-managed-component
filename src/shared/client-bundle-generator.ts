@@ -1,13 +1,8 @@
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { ABSmartlySettings, Logger } from '../types'
 import { escapeSelectorForJS } from '../utils/selector-validator'
 import { getValidatedNumericConfig } from '../utils/config-validator'
-
-const SCRIPTS_DIR = join(__dirname, 'client-scripts')
-
-let cachedTriggerOnView: string | null = null
-let cachedInit: string | null = null
+import { TRIGGER_ON_VIEW_TEMPLATE } from './client-scripts/trigger-on-view'
+import { INIT_TEMPLATE } from './client-scripts/init'
 
 export interface ClientBundleOptions {
   mode: 'zaraz' | 'webcm'
@@ -94,18 +89,9 @@ function generateInitScript(settings: ABSmartlySettings): string {
 }
 
 function getTriggerOnViewTemplate(): string {
-  if (!cachedTriggerOnView) {
-    cachedTriggerOnView = readFileSync(
-      join(SCRIPTS_DIR, 'trigger-on-view.js'),
-      'utf-8'
-    )
-  }
-  return cachedTriggerOnView
+  return TRIGGER_ON_VIEW_TEMPLATE
 }
 
 function getInitTemplate(): string {
-  if (!cachedInit) {
-    cachedInit = readFileSync(join(SCRIPTS_DIR, 'init.js'), 'utf-8')
-  }
-  return cachedInit
+  return INIT_TEMPLATE
 }

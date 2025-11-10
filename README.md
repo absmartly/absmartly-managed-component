@@ -35,19 +35,22 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 
 ### Option A: Cloudflare Zaraz (Recommended)
 
-1. **Build the component**
+1. **Deploy the Worker**
    ```bash
    npm install
-   npm run build
    npm run deploy:zaraz
    ```
 
 2. **Add to Zaraz**
+
+   See the complete setup guide: **[ZARAZ_SETUP.md](./ZARAZ_SETUP.md)**
+
+   Quick summary:
    - Go to Cloudflare Dashboard → Zaraz → Third-party tools
    - Click "Add new tool" → "Custom Managed Component"
-   - Select the `absmartly-mc` worker
-   - Configure settings (see [Configuration](#configuration))
-   - Grant permissions
+   - Select `custom-mc-absmartly` worker
+   - Configure ABsmartly settings
+   - Grant permissions and publish
    - Add triggers (Pageview is automatic)
 
 3. **Done!** Your experiments will now run with minimal flicker.

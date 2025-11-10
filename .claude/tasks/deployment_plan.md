@@ -531,8 +531,8 @@ npx managed-component-to-cloudflare-worker \
 
 **Expected Output**:
 ```
-Published custom-mc-absmartly-mc (0.XX sec)
-  https://custom-mc-absmartly-mc.<account>.workers.dev
+Published custom-mc-absmartly (0.XX sec)
+  https://custom-mc-absmartly.<account>.workers.dev
 ```
 
 #### Step 3: Configure in Zaraz Dashboard
@@ -546,7 +546,7 @@ Published custom-mc-absmartly-mc (0.XX sec)
 **Add Custom Managed Component**:
 1. Click "Add new tool"
 2. Scroll down to "Custom Managed Component"
-3. Select your Worker from dropdown: `custom-mc-absmartly-mc`
+3. Select your Worker from dropdown: `custom-mc-absmartly`
 4. Click "Continue"
 
 **Configure Settings**:
@@ -618,10 +618,10 @@ window.absmartly  // Should be defined (if exposed)
 **Worker Logs** (via Wrangler):
 ```bash
 # Tail Worker logs in real-time
-wrangler tail custom-mc-absmartly-mc
+wrangler tail custom-mc-absmartly
 
 # Or view in Cloudflare Dashboard
-# Workers → custom-mc-absmartly-mc → Logs
+# Workers → custom-mc-absmartly → Logs
 ```
 
 #### Step 5: Test Experiments
@@ -975,7 +975,7 @@ The `managed-component-to-cloudflare-worker` tool auto-generates `wrangler.toml`
 
 **Basic wrangler.toml** (auto-generated):
 ```toml
-name = "custom-mc-absmartly-mc"
+name = "custom-mc-absmartly"
 main = "index.js"
 compatibility_date = "2023-05-15"
 workers_dev = true
@@ -989,7 +989,7 @@ format = "service-worker"
 
 **Advanced wrangler.toml** (custom):
 ```toml
-name = "custom-mc-absmartly-mc"
+name = "custom-mc-absmartly"
 main = "index.js"
 compatibility_date = "2023-05-15"
 workers_dev = true
@@ -1518,7 +1518,7 @@ If P2 (minor issues):
 
 **1. Cloudflare Analytics**
 
-**Access**: Cloudflare Dashboard → Workers → custom-mc-absmartly-mc → Analytics
+**Access**: Cloudflare Dashboard → Workers → custom-mc-absmartly → Analytics
 
 **Available Metrics**:
 - Requests (total, per second)
@@ -1537,7 +1537,7 @@ If P2 (minor issues):
 wrangler logpush create \
   --destination-conf "s3://bucket/path?region=us-west-2" \
   --dataset workers_trace_events \
-  --filter '{"where":{"and":[{"key":"scriptName","operator":"eq","value":"custom-mc-absmartly-mc"}]}}'
+  --filter '{"where":{"and":[{"key":"scriptName","operator":"eq","value":"custom-mc-absmartly"}]}}'
 ```
 
 **Benefits**:
@@ -1551,13 +1551,13 @@ wrangler logpush create \
 **Usage**:
 ```bash
 # Tail logs in real-time
-wrangler tail custom-mc-absmartly-mc
+wrangler tail custom-mc-absmartly
 
 # Filter for errors only
-wrangler tail custom-mc-absmartly-mc --status error
+wrangler tail custom-mc-absmartly --status error
 
 # Sample 10% of requests
-wrangler tail custom-mc-absmartly-mc --sampling-rate 0.1
+wrangler tail custom-mc-absmartly --sampling-rate 0.1
 ```
 
 **Use Cases**:
@@ -2241,14 +2241,14 @@ test('context creation completes within 100ms', async () => {
 1. **Check Worker name**:
    ```bash
    wrangler list
-   # Should see: custom-mc-absmartly-mc
+   # Should see: custom-mc-absmartly
    ```
 
 2. **Redeploy with correct name**:
    ```bash
    npx managed-component-to-cloudflare-worker \
      ./dist/index.js \
-     custom-mc-absmartly-mc
+     custom-mc-absmartly
    ```
 
 3. **Check Zaraz enabled**:
@@ -2296,7 +2296,7 @@ test('context creation completes within 100ms', async () => {
 
 6. **Check Worker logs**:
    ```bash
-   wrangler tail custom-mc-absmartly-mc
+   wrangler tail custom-mc-absmartly
    ```
 
 #### Issue 5: Experiments Not Applied
@@ -2363,7 +2363,7 @@ test('context creation completes within 100ms', async () => {
 2. **Check API latency**:
    ```bash
    # Check Worker logs
-   wrangler tail custom-mc-absmartly-mc
+   wrangler tail custom-mc-absmartly
    # Look for "Context created in Xms"
    ```
 
@@ -2422,7 +2422,7 @@ test('context creation completes within 100ms', async () => {
 
 5. **Check Worker logs**:
    ```bash
-   wrangler tail custom-mc-absmartly-mc
+   wrangler tail custom-mc-absmartly
    # Look for "Setting cookie: absmartly_id"
    ```
 
@@ -2443,7 +2443,7 @@ test('context creation completes within 100ms', async () => {
 
 1. **Check error logs**:
    ```bash
-   wrangler tail custom-mc-absmartly-mc --status error
+   wrangler tail custom-mc-absmartly --status error
    ```
 
 2. **Check ABsmartly API**:
@@ -2558,7 +2558,7 @@ test('context creation completes within 100ms', async () => {
 
 4. **Check Worker logs**:
    ```bash
-   wrangler tail custom-mc-absmartly-mc
+   wrangler tail custom-mc-absmartly
    # Look for "Override detected"
    ```
 
@@ -2624,13 +2624,13 @@ Logs:
 **2. Check Logs**:
 ```bash
 # Worker logs
-wrangler tail custom-mc-absmartly-mc
+wrangler tail custom-mc-absmartly
 
 # Browser console
 # Open DevTools → Console
 
 # Cloudflare Analytics
-# Dashboard → Workers → custom-mc-absmartly-mc → Analytics
+# Dashboard → Workers → custom-mc-absmartly → Analytics
 ```
 
 **3. Contact Support**:

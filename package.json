@@ -13,7 +13,8 @@
     "test": "vitest run --globals --passWithNoTests",
     "test:watch": "vitest --globals --passWithNoTests",
     "test:ui": "vitest --ui --globals --passWithNoTests",
-    "deploy:zaraz": "npm run build && npx managed-component-to-cloudflare-worker ./dist/index.js absmartly-mc",
+    "deploy:zaraz": "npm run build && npm run deploy:worker",
+    "deploy:worker": "cp dist/index.js worker/src/component.js && cp manifest.json worker/src/ && cp -r assets worker/src/ && cd worker && npm install && wrangler deploy",
     "release": "npm run build && npm version patch && npm publish"
   },
   "repository": {
@@ -38,7 +39,7 @@
   "homepage": "https://github.com/absmartly/absmartly-managed-component#readme",
   "dependencies": {
     "@absmartly/javascript-sdk": "^1.13.2",
-    "isomorphic-dompurify": "^2.30.1",
+    "dompurify": "^3.3.0",
     "linkedom": "^0.18.12"
   },
   "devDependencies": {
@@ -51,7 +52,6 @@
     "eslint": "^8.16.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^5.0.0",
-    "jsdom": "^27.0.0",
     "typescript": "^5.0.0",
     "vitest": "^0.34.0"
   }

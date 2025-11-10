@@ -14,7 +14,7 @@ export function createTestSDK(
     environment: 'test',
     application: 'test-app',
     retries: 0,
-    timeout: 1000,
+    timeout: 1,
     eventLogger,
   })
 }

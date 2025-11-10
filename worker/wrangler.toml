@@ -1,0 +1,14 @@
+name = "custom-mc-absmartly"
+compatibility_date = "2024-10-01"
+account_id = "8ec66ff1f67c2bf53e7970533604ebe9"
+compatibility_flags = ["nodejs_compat"]
+main = "src/index.ts"
+
+# KV namespace for caching ABsmartly contexts
+# The binding name must be "KV" for the Managed Component wrapper
+[[kv_namespaces]]
+binding = "KV"
+id = "7f37a1bda722439cb7682e30e3a3b572"
+
+[observability]
+enabled = true

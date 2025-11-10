@@ -21,4 +21,5 @@ esbuild.buildSync({
   target: ['esnext'],
   tsconfig: 'tsconfig.build.json',
   outfile: 'dist/index.js',
+  external: ['node:*'],
 })
