@@ -1,5 +1,5 @@
 import { MCEvent, Client } from '@managed-components/types'
-import { ABSmartlySettings, Logger } from '../types'
+import { ABsmartlySettings, Logger } from '../types'
 import { TrackBridge, PublishData } from '../shared/track-bridge'
 
 interface ExtendedClient extends Client {
@@ -11,17 +11,17 @@ interface ExtendedClient extends Client {
   }
 }
 
-export class ABSmartlyEndpointHandler {
+export class ABsmartlyEndpointHandler {
   private trackBridge: TrackBridge
 
   constructor(
-    private settings: ABSmartlySettings,
+    private settings: ABsmartlySettings,
     private logger: Logger
   ) {
     this.trackBridge = new TrackBridge({
       logger,
-      apiEndpoint: settings.ABSMARTLY_ENDPOINT,
-      apiKey: settings.ABSMARTLY_API_KEY,
+      apiEndpoint: settings.ENDPOINT,
+      apiKey: settings.SDK_API_KEY,
       returnImmediate: true,
     })
   }
@@ -51,7 +51,7 @@ export class ABSmartlyEndpointHandler {
         event.client.return(
           new Response(
             JSON.stringify({
-              message: 'ABSmartly passthrough endpoint',
+              message: 'ABsmartly passthrough endpoint',
               status: 'ok',
             }),
             {
@@ -67,7 +67,7 @@ export class ABSmartlyEndpointHandler {
         const contentType = client.request.headers?.['content-type']
         if (!contentType || !contentType.includes('application/json')) {
           this.logger.warn(
-            '[ABSmartly MC] Invalid Content-Type for POST request',
+            '[ABsmartly MC] Invalid Content-Type for POST request',
             { contentType }
           )
           event.client.return(

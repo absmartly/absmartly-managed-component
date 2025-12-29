@@ -1,24 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { SDKInjector } from '../../../src/core/sdk-injector'
-import { ABSmartlySettings } from '../../../src/types'
+import { ABsmartlySettings } from '../../../src/types'
 import { createLogger } from '../../../src/utils/logger'
 
 describe('SDKInjector', () => {
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let injector: SDKInjector
 
   beforeEach(() => {
     settings = {
-      DEPLOYMENT_MODE: 'zaraz',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'production',
-      ABSMARTLY_APPLICATION: 'test-app',
+      DEPLOYMENT_MODE: 'webcm',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'production',
+      APPLICATION: 'test-app',
       INJECT_CLIENT_SDK: true,
       PASS_SERVER_PAYLOAD: true,
       CLIENT_SDK_STRATEGY: 'cdn',
       CLIENT_SDK_CDN_PROVIDER: 'unpkg',
-    } as ABSmartlySettings
+    } as ABsmartlySettings
 
     const logger = createLogger(false)
     injector = new SDKInjector({ settings, logger })
@@ -51,6 +51,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -62,6 +63,7 @@ describe('SDKInjector', () => {
     it('should generate script with CDN URL when strategy is cdn', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -79,6 +81,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -94,6 +97,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -108,6 +112,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -140,6 +145,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData,
         overrides: {},
         experiments: [],
@@ -156,6 +162,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -173,6 +180,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides,
         experiments: [],
@@ -185,6 +193,7 @@ describe('SDKInjector', () => {
     it('should use IIFE pattern (no window globals)', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -198,6 +207,7 @@ describe('SDKInjector', () => {
     it('should include SDK configuration WITHOUT API key', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -213,6 +223,7 @@ describe('SDKInjector', () => {
     it('should include error handling', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -226,6 +237,7 @@ describe('SDKInjector', () => {
     it('should set ABsmartlyContext on window', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -242,6 +254,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -258,6 +271,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user-123',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: { exp1: 1 },
         experiments: [],
@@ -275,6 +289,7 @@ describe('SDKInjector', () => {
     it('should default to unpkg with latest version', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -289,6 +304,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -303,6 +319,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -316,6 +333,7 @@ describe('SDKInjector', () => {
     it('should use createContextWith when server data is passed', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -331,6 +349,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -343,6 +362,7 @@ describe('SDKInjector', () => {
     it('should apply overrides when present', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: { 'test-exp': 1 },
         experiments: [],
@@ -356,6 +376,7 @@ describe('SDKInjector', () => {
     it('should log success when server data is used', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -370,6 +391,7 @@ describe('SDKInjector', () => {
     it('should be valid JavaScript', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -383,6 +405,7 @@ describe('SDKInjector', () => {
     it('should properly escape JSON in script', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user-with-"quotes"',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -394,6 +417,7 @@ describe('SDKInjector', () => {
     it('should use direct script tag with src attribute', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -407,6 +431,7 @@ describe('SDKInjector', () => {
     it('should have 2 script tags (one for SDK, one for init)', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -424,6 +449,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -440,6 +466,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -455,6 +482,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -472,6 +500,7 @@ describe('SDKInjector', () => {
 
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -485,6 +514,7 @@ describe('SDKInjector', () => {
     it('should wait for ABsmartly.SDK for CDN strategy', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -495,10 +525,123 @@ describe('SDKInjector', () => {
     })
   })
 
+  describe('Zaraz mode with proxy route', () => {
+    it('should inline SDK bundle and call ABsmartlyInit in Zaraz mode', () => {
+      settings.DEPLOYMENT_MODE = 'zaraz'
+      settings.CLIENT_SDK_STRATEGY = 'cdn'
+      injector = new SDKInjector({ settings, logger: createLogger(false) })
+
+      const script = injector.generateInjectionScript({
+        unitId: 'test-user',
+        unitType: 'user_id',
+        contextData: { experiments: [] },
+        overrides: {},
+        experiments: [],
+      })
+
+      expect(script).toContain('window.ABsmartlyInit')
+      expect(script).not.toContain('<script>')
+      expect(script).not.toContain('</script>')
+    })
+
+    it('should use JSON stringified config values in Zaraz mode', () => {
+      settings.DEPLOYMENT_MODE = 'zaraz'
+      settings.CLIENT_SDK_STRATEGY = 'cdn'
+      injector = new SDKInjector({ settings, logger: createLogger(false) })
+
+      const script = injector.generateInjectionScript({
+        unitId: 'test-user',
+        unitType: 'user_id',
+        contextData: { experiments: [] },
+        overrides: {},
+        experiments: [],
+      })
+
+      expect(script).toContain('endpoint: "https://api.absmartly.io/v1"')
+      expect(script).toContain('environment: "production"')
+      expect(script).toContain('application: "test-app"')
+    })
+
+    it('should pass unitId, serverData, and overrides to ABsmartlyInit', () => {
+      settings.DEPLOYMENT_MODE = 'zaraz'
+      settings.CLIENT_SDK_STRATEGY = 'cdn'
+      injector = new SDKInjector({ settings, logger: createLogger(false) })
+
+      const script = injector.generateInjectionScript({
+        unitId: 'user-123',
+        unitType: 'user_id',
+        contextData: { experiments: [] },
+        overrides: { exp1: 1 },
+        experiments: [],
+      })
+
+      expect(script).toContain('window.ABsmartlyInit')
+      expect(script).toContain('"user-123"')
+      expect(script).toContain('{"exp1":1}')
+    })
+
+    it('should pass server data when PASS_SERVER_PAYLOAD is true', () => {
+      settings.DEPLOYMENT_MODE = 'zaraz'
+      settings.CLIENT_SDK_STRATEGY = 'cdn'
+      settings.PASS_SERVER_PAYLOAD = true
+      injector = new SDKInjector({ settings, logger: createLogger(false) })
+
+      const contextData = {
+        experiments: [{
+          id: 1,
+          name: 'test',
+          unitType: 'user_id',
+          iteration: 1,
+          seedHi: 0,
+          seedLo: 0,
+          split: [0.5, 0.5],
+          trafficSeedHi: 0,
+          trafficSeedLo: 0,
+          trafficSplit: [1.0],
+          fullOnVariant: 0,
+          applications: [{ name: 'test-app' }],
+          variants: [
+            { name: 'control', config: null },
+            { name: 'treatment', config: null }
+          ],
+          audienceStrict: false
+        }]
+      }
+
+      const script = injector.generateInjectionScript({
+        unitId: 'user-123',
+        unitType: 'user_id',
+        contextData,
+        overrides: {},
+        experiments: [],
+      })
+
+      expect(script).toContain(JSON.stringify(contextData))
+    })
+
+    it('should pass null as server data when PASS_SERVER_PAYLOAD is false', () => {
+      settings.DEPLOYMENT_MODE = 'zaraz'
+      settings.CLIENT_SDK_STRATEGY = 'cdn'
+      settings.PASS_SERVER_PAYLOAD = false
+      injector = new SDKInjector({ settings, logger: createLogger(false) })
+
+      const script = injector.generateInjectionScript({
+        unitId: 'user-123',
+        unitType: 'user_id',
+        contextData: { experiments: [] },
+        overrides: {},
+        experiments: [],
+      })
+
+      expect(script).toContain(', null,')
+    })
+  })
+
   describe('security', () => {
     it('should NEVER expose API key in client-side script', () => {
       const script = injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -506,7 +649,7 @@ describe('SDKInjector', () => {
 
       expect(script).not.toContain('test-key')
       expect(script).not.toContain('apiKey')
-      expect(script).not.toContain('ABSMARTLY_API_KEY')
+      expect(script).not.toContain('SDK_API_KEY')
     })
 
     it('should provide server SDK config separately for server-side use', () => {
@@ -529,6 +672,7 @@ describe('SDKInjector', () => {
 
       injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],
@@ -549,6 +693,7 @@ describe('SDKInjector', () => {
 
       injector.generateInjectionScript({
         unitId: 'test-user',
+        unitType: 'user_id',
         contextData: { experiments: [] },
         overrides: {},
         experiments: [],

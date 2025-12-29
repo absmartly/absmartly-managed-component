@@ -2,7 +2,37 @@
 
 This guide shows you how to configure settings for your ABsmartly Custom Managed Component in Cloudflare Zaraz.
 
-## ✅ Update: Pre-Configured Fields Now Available!
+## 🆕 Recommended: ZARAZ_CONFIG Option
+
+The simplest way to configure your ABsmartly component is using the `ZARAZ_CONFIG` setting. This allows you to pass all your configuration as a single JSON object:
+
+```
+Field Name: ZARAZ_CONFIG
+Type: Text
+Value: {
+  "ABSMARTLY_ENDPOINT": "https://demo2.absmartly.com",
+  "ABSMARTLY_ENVIRONMENT": "Prod",
+  "ABSMARTLY_APPLICATION": "absmartly.com",
+  "ENABLE_DEBUG": "true"
+}
+```
+
+**Key benefits:**
+- ✅ All settings in one place
+- ✅ Individual settings override ZARAZ_CONFIG (e.g., keep API key separate)
+- ✅ Empty string values are treated as undefined (ZARAZ_CONFIG takes precedence)
+
+**Example: Keep API Key Separate**
+```
+ZARAZ_CONFIG: { "ABSMARTLY_ENDPOINT": "...", "ABSMARTLY_ENVIRONMENT": "..." }
+ABSMARTLY_API_KEY: {{secrets.absmartly_api_key}}  ← Individual setting overrides
+```
+
+This is especially useful for keeping sensitive values like API keys in Zaraz's secret variables while storing other configuration in JSON.
+
+---
+
+## ✅ Alternative: Pre-Configured Fields
 
 As of the latest deployment, the ABsmartly component now includes a `manifest.json` with pre-defined fields. When you add the tool in Zaraz, you should see the following fields automatically appear in the settings dropdown:
 
@@ -221,7 +251,7 @@ After publishing, check your browser console on your website:
 
 ```javascript
 // Should see initialization log
-[ABSmartly MC] Anti-flicker applied
+[ABsmartly MC] Anti-flicker applied
 
 // Check for ABsmartly context cookie
 document.cookie.split(';').find(c => c.includes('absmartly'))

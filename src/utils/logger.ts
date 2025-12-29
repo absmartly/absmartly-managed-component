@@ -1,7 +1,18 @@
 import { Logger } from '../types'
 
-export function createLogger(enableDebug: boolean): Logger {
-  const prefix = '[ABSmartly MC]'
+export type LoggerMode = 'worker' | 'zaraz' | 'webcm'
+
+const MODE_PREFIXES: Record<LoggerMode, string> = {
+  worker: '[ABsmartly Worker]',
+  zaraz: '[ABsmartly Zaraz]',
+  webcm: '[ABsmartly WebCM]',
+}
+
+export function createLogger(
+  enableDebug: boolean,
+  mode: LoggerMode = 'zaraz'
+): Logger {
+  const prefix = MODE_PREFIXES[mode]
 
   return {
     log: (...args: unknown[]) => {

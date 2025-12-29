@@ -222,10 +222,10 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `INJECT_CLIENT_SDK` | boolean | `false` | Inject ABsmartly SDK for client-side A/B testing (SPAs) |
-| `CLIENT_SDK_STRATEGY` | string | `"external"` | SDK injection strategy: `"bundled"` (served from /_zaraz/absmartly-sdk.js) or `"external"` (CDN) |
-| `CLIENT_SDK_CDN_PROVIDER` | string | `"unpkg"` | CDN provider for external SDK: `"unpkg"` or `"jsdelivr"` |
-| `CLIENT_SDK_VERSION` | string | `"latest"` | SDK version to load from CDN (e.g., `"1.15.0"`, `"latest"`) |
+| `INJECT_CLIENT_SDK` | boolean | `true` | Inject ABsmartly SDK for client-side A/B testing (SPAs) |
+| `CLIENT_SDK_STRATEGY` | string | `"zaraz-bundle"` | SDK injection strategy: `"zaraz-bundle"` (served from /_zaraz/absmartly-sdk.js), `"cdn"` (from CDN), or `"custom"` |
+| `CLIENT_SDK_CDN_PROVIDER` | string | `"unpkg"` | CDN provider for external SDK: `"unpkg"` or `"jsdelivr"` (used when strategy is `"cdn"`) |
+| `CLIENT_SDK_VERSION` | string | `"latest"` | SDK version to load from CDN (e.g., `"1.15.0"`, `"latest"`) (used when strategy is `"cdn"`) |
 | `CLIENT_SDK_URL` | string | - | Custom SDK URL (only used if `CLIENT_SDK_STRATEGY` is `"custom"`) |
 | `PASS_SERVER_PAYLOAD` | boolean | `true` | Pass server-side context data to client SDK (avoids CDN fetch on pageload) |
 
@@ -295,7 +295,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
   "ABSMARTLY_ENVIRONMENT": "production",
   "ABSMARTLY_APPLICATION": "website",
   "INJECT_CLIENT_SDK": true,
-  "CLIENT_SDK_STRATEGY": "bundled",
+  // CLIENT_SDK_STRATEGY defaults to "zaraz-bundle" (served from /_zaraz/absmartly-sdk.js)
   "PASS_SERVER_PAYLOAD": true
 }
 ```
@@ -309,7 +309,7 @@ Flicker-free A/B testing at the edge with ABsmartly - powered by Cloudflare Zara
   "ABSMARTLY_ENVIRONMENT": "production",
   "ABSMARTLY_APPLICATION": "website",
   "INJECT_CLIENT_SDK": true,
-  "CLIENT_SDK_STRATEGY": "external",
+  "CLIENT_SDK_STRATEGY": "cdn",
   "CLIENT_SDK_CDN_PROVIDER": "jsdelivr",
   "CLIENT_SDK_VERSION": "1.15.0",
   "PASS_SERVER_PAYLOAD": true
@@ -774,7 +774,7 @@ Add viewport tracking to any change:
   - API reference and examples
 
 - **[Setup Guide](docs/SETUP_GUIDE.md)** - Production deployment guide
-  - ABSmartly dashboard configuration
+  - ABsmartly dashboard configuration
   - Server-side experiment setup
   - Cloudflare Zaraz configuration
   - DOM changes reference

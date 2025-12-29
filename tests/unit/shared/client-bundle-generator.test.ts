@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { generateClientBundle } from '../../../src/shared/client-bundle-generator'
-import type { ABSmartlySettings, Logger } from '../../../src/types'
+import type { ABsmartlySettings, Logger } from '../../../src/types'
 
 describe('generateClientBundle', () => {
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let logger: Logger
 
   beforeEach(() => {
     settings = {
       DEPLOYMENT_MODE: 'zaraz',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'test',
-      ABSMARTLY_APPLICATION: 'test-app',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'test',
+      APPLICATION: 'test-app',
       ENABLE_ANTI_FLICKER: true,
       ENABLE_TRIGGER_ON_VIEW: true,
       INJECT_CLIENT_BUNDLE: true
@@ -116,7 +116,7 @@ describe('generateClientBundle', () => {
       })
 
       expect(bundle).toContain('true')
-      expect(bundle).toContain('ABSmartlyInit')
+      expect(bundle).toContain('ABsmartlyInit')
     })
   })
 
@@ -202,7 +202,7 @@ describe('generateClientBundle', () => {
 
       // Should still have some content (init script at minimum)
       expect(bundle.length).toBeGreaterThan(0)
-      expect(bundle).toContain('ABSmartlyInit')
+      expect(bundle).toContain('ABsmartlyInit')
     })
 
     it('should log debug information', () => {

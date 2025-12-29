@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { OverridesHandler } from '../../../src/core/overrides-handler'
 import { MCEvent, Client } from '@managed-components/types'
+import { ABsmartlySettings } from '../../../src/types'
+import { COOKIE_NAMES } from '../../../src/constants/cookies'
 
 describe('OverridesHandler', () => {
   let handler: OverridesHandler
   let mockEvent: Partial<MCEvent>
   let mockClient: Partial<Client>
   let cookieStorage: Map<string, string>
+  let mockSettings: ABsmartlySettings
 
   const createMockClient = (urlString: string = 'https://example.com'): Partial<Client> => {
     return {
@@ -20,7 +23,16 @@ describe('OverridesHandler', () => {
   }
 
   beforeEach(() => {
-    handler = new OverridesHandler()
+    mockSettings = {
+      DEPLOYMENT_MODE: 'zaraz',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.example.com',
+      ENVIRONMENT: 'test',
+      APPLICATION: 'test-app',
+      COOKIE_SECURE: true,
+      COOKIE_SAMESITE: 'Lax',
+    } as ABsmartlySettings
+    handler = new OverridesHandler(mockSettings)
     cookieStorage = new Map()
 
     mockClient = createMockClient()
@@ -51,7 +63,7 @@ describe('OverridesHandler', () => {
 
     it('should get cookie overrides', () => {
       cookieStorage.set(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ experiment1: 3, experiment2: 0 })
       )
 
@@ -66,7 +78,7 @@ describe('OverridesHandler', () => {
     it('should merge URL and cookie overrides with cookie taking precedence', () => {
       mockClient = createMockClient('https://example.com?absmartly_experiment1=2')
       cookieStorage.set(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ experiment1: 0, experiment2: 1 })
       )
 
@@ -156,7 +168,7 @@ describe('OverridesHandler', () => {
   describe('getCookieOverrides', () => {
     it('should parse valid JSON from cookie', () => {
       cookieStorage.set(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ exp1: 1, exp2: 2 })
       )
 
@@ -175,7 +187,7 @@ describe('OverridesHandler', () => {
     })
 
     it('should return empty object for invalid JSON', () => {
-      cookieStorage.set('absmartly_overrides', 'invalid json')
+      cookieStorage.set(COOKIE_NAMES.OVERRIDES, 'invalid json')
 
       const overrides = (handler as any).getCookieOverrides(mockEvent)
 
@@ -202,25 +214,28 @@ describe('OverridesHandler', () => {
       handler.setOverride(mockEvent as MCEvent, 'exp1', 2)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ exp1: 2 }),
         {
           scope: 'page',
           expiry: 7 * 86400,
+          httpOnly: false,
+          secure: true,
+          sameSite: 'Lax',
         }
       )
     })
 
     it('should merge with existing overrides', () => {
       cookieStorage.set(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ exp1: 1, exp2: 0 })
       )
 
       handler.setOverride(mockEvent as MCEvent, 'exp3', 2)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ exp1: 1, exp2: 0, exp3: 2 }),
         expect.any(Object)
       )
@@ -228,14 +243,14 @@ describe('OverridesHandler', () => {
 
     it('should update existing override', () => {
       cookieStorage.set(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ exp1: 1 })
       )
 
       handler.setOverride(mockEvent as MCEvent, 'exp1', 2)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ exp1: 2 }),
         expect.any(Object)
       )
@@ -245,7 +260,7 @@ describe('OverridesHandler', () => {
       handler.setOverride(mockEvent as MCEvent, 'exp1', 0)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         JSON.stringify({ exp1: 0 }),
         expect.any(Object)
       )
@@ -254,16 +269,19 @@ describe('OverridesHandler', () => {
 
   describe('clearOverrides', () => {
     it('should clear overrides cookie', () => {
-      cookieStorage.set('absmartly_overrides', JSON.stringify({ exp1: 1 }))
+      cookieStorage.set(COOKIE_NAMES.OVERRIDES, JSON.stringify({ exp1: 1 }))
 
       handler.clearOverrides(mockEvent as MCEvent)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         '',
         {
           scope: 'page',
           expiry: 0,
+          httpOnly: false,
+          secure: true,
+          sameSite: 'Lax',
         }
       )
     })
@@ -272,7 +290,7 @@ describe('OverridesHandler', () => {
       handler.clearOverrides(mockEvent as MCEvent)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_overrides',
+        COOKIE_NAMES.OVERRIDES,
         '',
         expect.any(Object)
       )

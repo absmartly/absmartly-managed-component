@@ -46,7 +46,7 @@ export function sanitizeAttributeValue(
       lowerValue.startsWith('vbscript:')
     ) {
       logger?.warn(
-        '[ABSmartly MC] Blocked dangerous protocol in attribute:',
+        '[ABsmartly MC] Blocked dangerous protocol in attribute:',
         name,
         value
       )
@@ -56,7 +56,7 @@ export function sanitizeAttributeValue(
 
   // Block event handler attributes
   if (name.toLowerCase().startsWith('on')) {
-    logger?.warn('[ABSmartly MC] Blocked event handler attribute:', name)
+    logger?.warn('[ABsmartly MC] Blocked event handler attribute:', name)
     return ''
   }
 

@@ -5,7 +5,7 @@ import { Manager } from './manager'
 import { Env, EventBody, InitBody } from './models'
 ;(globalThis as any).systemFetch = globalThis.fetch
 globalThis.fetch = async (
-  resource: string | Request,
+  resource: string | Request | URL,
   _settings?: RequestInit | Request
 ) => {
   // For now we will keep supporting normal fetch, but later we can replace the console.error with throw
@@ -51,7 +51,50 @@ export const handleRequest = async (
   }
 
   const url = new URL(request.url)
-  if (url.pathname === '/route') {
+  console.log('[ABsmartly MC] Request:', request.method, url.pathname, url.search)
+
+  if (url.pathname === '/set-cookie' && request.method === 'POST') {
+    // Endpoint for setting HttpOnly cookie directly from browser
+    try {
+      const body = await request.json() as {
+        cookieName: string
+        cookieValue: string
+        maxAge: number
+        domain?: string
+        secure?: boolean
+        httpOnly?: boolean
+        sameSite?: string
+      }
+
+      const cookieHeader = `${body.cookieName}=${body.cookieValue}; Max-Age=${body.maxAge}; Path=/${body.httpOnly ? '; HttpOnly' : ''}${body.secure ? '; Secure' : ''}; SameSite=${body.sameSite || 'Lax'}${body.domain ? `; Domain=${body.domain}` : ''}`
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Set-Cookie': cookieHeader,
+          'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      })
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+  } else if (url.pathname === '/set-cookie' && request.method === 'OPTIONS') {
+    // CORS preflight
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    })
+  } else if (url.pathname === '/route') {
     let settings: ComponentSettings
     let routeEndpoint: string
     let params: string
@@ -94,8 +137,9 @@ export const handleRequest = async (
     context.routePath = body.routePath || ''
 
     if (url.pathname === '/init') {
-      const manager = new Manager(context)
       const { settings } = body as InitBody
+      console.log('[ABsmartly MC] /init call')
+      const manager = new Manager(context)
       await componentCb(manager, settings)
       const { cookies, ...restOfContext } = context
       return new Response(
@@ -111,6 +155,7 @@ export const handleRequest = async (
       const { eventType, event, settings, clientData, debug } =
         body as EventBody
       const isClientEvent = url.searchParams.get('type') === 'client'
+      console.log('[ABsmartly MC] /event call:', eventType, 'from URL:', clientData?.url || 'unknown')
 
       context.cookies = clientData.cookies
       context.debug = debug
@@ -129,11 +174,51 @@ export const handleRequest = async (
         }
       }
 
+      // Extract abs cookie from pendingCookies to set via HTTP header
+      const pendingCookies = context.response.pendingCookies || {}
+      const absCookieName = settings['COOKIE_NAME'] || 'abs'
+      const absCookie = pendingCookies[absCookieName]
+
+      // Prepare response headers
+      const headers = new Headers({
+        'Content-Type': 'application/json',
+      })
+
+      // Set abs cookie via HTTP header with security flags if present
+      if (absCookie) {
+        const cookieMaxAge = parseInt(settings['COOKIE_MAX_AGE'] || '730', 10) * 86400
+        const secure = settings['COOKIE_SECURE'] !== false
+        const httpOnly = settings['COOKIE_HTTPONLY'] !== false
+        const sameSite = settings['COOKIE_SAMESITE'] || 'Lax'
+        const domain = settings['COOKIE_DOMAIN']
+
+        let cookieHeader = `${absCookieName}=${absCookie.value}; Max-Age=${cookieMaxAge}; Path=/`
+
+        if (httpOnly) {
+          cookieHeader += '; HttpOnly'
+        }
+        if (secure) {
+          cookieHeader += '; Secure'
+        }
+        cookieHeader += `; SameSite=${sameSite}`
+
+        if (domain) {
+          cookieHeader += `; Domain=${domain}`
+        }
+
+        headers.append('Set-Cookie', cookieHeader)
+
+        // Remove abs cookie from pendingCookies so Zaraz doesn't set it
+        delete pendingCookies[absCookieName]
+      }
+
       return new Response(
         JSON.stringify({
           componentPath: context.componentPath,
           ...context.response,
-        })
+          pendingCookies, // Return modified pendingCookies without abs
+        }),
+        { headers }
       )
     }
   } else {

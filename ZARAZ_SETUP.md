@@ -92,7 +92,7 @@ You can add custom triggers for:
 2. Open browser DevTools (F12)
 3. In Console, check for:
    ```
-   [ABSmartly MC] Anti-flicker applied
+   [ABsmartly MC] Anti-flicker applied
    ```
 
 ### Check Experiment Assignment

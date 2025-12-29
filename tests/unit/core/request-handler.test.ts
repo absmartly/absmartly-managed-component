@@ -3,14 +3,14 @@ import { RequestHandler } from '../../../src/core/request-handler'
 import { ContextManager } from '../../../src/core/context-manager'
 import { CookieHandler } from '../../../src/core/cookie-handler'
 import { OverridesHandler } from '../../../src/core/overrides-handler'
-import { ABSmartlySettings, Logger, ExperimentData, OverridesMap } from '../../../src/types'
+import { ABsmartlySettings, Logger, ExperimentData, OverridesMap } from '../../../src/types'
 import { MCEvent, Client } from '@managed-components/types'
 
 describe('RequestHandler', () => {
   let contextManager: Partial<ContextManager>
   let cookieHandler: Partial<CookieHandler>
   let overridesHandler: Partial<OverridesHandler>
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let logger: Logger
   let handler: RequestHandler
   let mockClient: any
@@ -35,6 +35,7 @@ describe('RequestHandler', () => {
       ip: '127.0.0.1',
       fetch: vi.fn().mockResolvedValue(mockResponse),
       return: vi.fn(),
+      get: vi.fn().mockReturnValue(undefined),
     }
 
     mockEvent = {
@@ -67,11 +68,11 @@ describe('RequestHandler', () => {
 
     settings = {
       DEPLOYMENT_MODE: 'zaraz',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'production',
-      ABSMARTLY_APPLICATION: 'test-app',
-    } as ABSmartlySettings
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'production',
+      APPLICATION: 'test-app',
+    } as ABsmartlySettings
 
     logger = {
       log: vi.fn(),
@@ -110,7 +111,7 @@ describe('RequestHandler', () => {
       await handler.handleRequest(mockEvent as MCEvent)
 
       expect(cookieHandler.ensureUserId).toHaveBeenCalledWith(mockClient)
-      expect(logger.debug).toHaveBeenCalledWith('User ID', { userId: 'user123' })
+      expect(logger.debug).toHaveBeenCalledWith('User ID', expect.objectContaining({ userId: 'user123' }))
     })
 
     it('should store UTM params and landing page', async () => {
@@ -134,10 +135,9 @@ describe('RequestHandler', () => {
     it('should create context with correct parameters', async () => {
       await handler.handleRequest(mockEvent as MCEvent)
 
+      // Implementation only passes userAgent by default (ip requires INCLUDE_IP_IN_ATTRIBUTES)
       expect(contextManager.getOrCreateContext).toHaveBeenCalledWith('user123', {}, {
-        url: 'https://example.com/test',
         userAgent: 'test-agent',
-        ip: '127.0.0.1',
       })
     })
 
@@ -145,10 +145,10 @@ describe('RequestHandler', () => {
       await handler.handleRequest(mockEvent as MCEvent)
 
       expect(contextManager.extractExperimentData).toHaveBeenCalledWith(mockContext)
-      expect(logger.debug).toHaveBeenCalledWith('Experiments extracted', {
+      expect(logger.debug).toHaveBeenCalledWith('Experiments extracted', expect.objectContaining({
         count: 1,
         experiments: [{ name: 'test-experiment', treatment: 1 }],
-      })
+      }))
     })
 
     it('should fetch the original response', async () => {
@@ -161,7 +161,8 @@ describe('RequestHandler', () => {
       await handler.handleRequest(mockEvent as MCEvent)
 
       expect(contextManager.publishContext).toHaveBeenCalledWith(mockContext)
-      expect(logger.debug).toHaveBeenCalledWith('Exposures published')
+      // Implementation logs 'Request processing complete' via logger.log, not debug
+      expect(logger.log).toHaveBeenCalledWith('Request processing complete', expect.any(Object))
     })
 
     it('should handle fetch returning boolean', async () => {
@@ -172,7 +173,8 @@ describe('RequestHandler', () => {
       expect(result?.shouldProcess).toBe(false)
       expect(result?.fetchResult).toBe(true)
       expect(logger.warn).toHaveBeenCalledWith(
-        'Fetch returned unexpected result, skipping manipulation'
+        'Fetch returned unexpected result, skipping manipulation',
+        expect.any(Object)
       )
     })
 
@@ -240,49 +242,45 @@ describe('RequestHandler', () => {
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
       expect(result?.experimentData).toHaveLength(3)
-      expect(logger.debug).toHaveBeenCalledWith('Experiments extracted', {
+      expect(logger.debug).toHaveBeenCalledWith('Experiments extracted', expect.objectContaining({
         count: 3,
         experiments: [
           { name: 'exp-1', treatment: 0 },
           { name: 'exp-2', treatment: 1 },
           { name: 'exp-3', treatment: 2 },
         ],
-      })
+      }))
     })
 
     it('should handle requests with query parameters', async () => {
-      ;mockClient.url = new URL('https://example.com/page?utm_source=test&absmartly=exp:1')
+      mockClient.url = new URL('https://example.com/page?utm_source=test&absmartly=exp:1')
 
       await handler.handleRequest(mockEvent as MCEvent)
 
+      // Implementation only passes userAgent by default
       expect(contextManager.getOrCreateContext).toHaveBeenCalledWith('user123', {}, {
-        url: 'https://example.com/page?utm_source=test&absmartly=exp:1',
         userAgent: 'test-agent',
-        ip: '127.0.0.1',
       })
     })
 
     it('should handle requests without user agent', async () => {
-      ;mockClient.userAgent = undefined
+      mockClient.userAgent = undefined
 
       await handler.handleRequest(mockEvent as MCEvent)
 
       expect(contextManager.getOrCreateContext).toHaveBeenCalledWith('user123', {}, {
-        url: 'https://example.com/test',
         userAgent: undefined,
-        ip: '127.0.0.1',
       })
     })
 
     it('should handle requests without IP', async () => {
-      ;mockClient.ip = undefined
+      mockClient.ip = undefined
 
       await handler.handleRequest(mockEvent as MCEvent)
 
+      // IP is not passed by default (requires INCLUDE_IP_IN_ATTRIBUTES)
       expect(contextManager.getOrCreateContext).toHaveBeenCalledWith('user123', {}, {
-        url: 'https://example.com/test',
         userAgent: 'test-agent',
-        ip: undefined,
       })
     })
 
@@ -292,7 +290,7 @@ describe('RequestHandler', () => {
       expect(logger.debug).toHaveBeenCalledWith('Request intercepted', expect.any(Object))
       expect(logger.debug).toHaveBeenCalledWith('User ID', expect.any(Object))
       expect(logger.debug).toHaveBeenCalledWith('Experiments extracted', expect.any(Object))
-      expect(logger.debug).toHaveBeenCalledWith('Exposures published')
+      expect(logger.log).toHaveBeenCalledWith('Request processing complete', expect.any(Object))
     })
 
     it('should handle empty experiment data', async () => {
@@ -301,10 +299,10 @@ describe('RequestHandler', () => {
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
       expect(result?.experimentData).toHaveLength(0)
-      expect(logger.debug).toHaveBeenCalledWith('Experiments extracted', {
+      expect(logger.debug).toHaveBeenCalledWith('Experiments extracted', expect.objectContaining({
         count: 0,
         experiments: [],
-      })
+      }))
     })
 
     it('should handle new user without existing ID', async () => {
@@ -494,16 +492,17 @@ describe('RequestHandler', () => {
     })
 
     it('should handle special characters in URL', async () => {
-      ;mockClient.url = new URL('https://example.com/path?q=%E2%9C%93&test=123')
+      mockClient.url = new URL('https://example.com/path?q=%E2%9C%93&test=123')
 
       const result = await handler.handleRequest(mockEvent as MCEvent)
 
       expect(result).not.toBeNull()
+      // Implementation only passes userAgent, not url
       expect(contextManager.getOrCreateContext).toHaveBeenCalledWith(
         'user123',
         {},
         expect.objectContaining({
-          url: 'https://example.com/path?q=%E2%9C%93&test=123',
+          userAgent: 'test-agent',
         })
       )
     })

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   serializeContextData,
   deserializeContextData,
-  generateSessionId,
   generateUUID,
   hashString,
   safeParseJSON,
@@ -46,37 +45,34 @@ describe('Serializer Utils', () => {
     })
   })
 
-  describe('generateSessionId', () => {
-    it('should generate session ID with user ID and date', () => {
-      const userId = 'user123'
-      const result = generateSessionId(userId)
-
-      expect(result).toContain(userId)
-      expect(result).toContain('_')
-      expect(result).toMatch(/user123_\d{4}-\d{2}-\d{2}/)
-    })
-
-    it('should generate same session ID for same user on same day', () => {
-      const userId = 'user123'
-      const result1 = generateSessionId(userId)
-      const result2 = generateSessionId(userId)
-
-      expect(result1).toBe(result2)
-    })
-  })
-
   describe('generateUUID', () => {
-    it('should generate valid UUID v4 format', () => {
+    it('should generate fast unique ID format (timestamp + random)', () => {
       const uuid = generateUUID()
 
-      expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      // Should be alphanumeric string (base36)
+      expect(uuid).toMatch(/^[0-9a-z]+$/)
+      // Should be reasonable length (timestamp base36 ~8 chars + random ~10 chars)
+      expect(uuid.length).toBeGreaterThan(10)
+      expect(uuid.length).toBeLessThan(30)
     })
 
-    it('should generate unique UUIDs', () => {
+    it('should generate unique IDs', () => {
       const uuid1 = generateUUID()
       const uuid2 = generateUUID()
 
       expect(uuid1).not.toBe(uuid2)
+    })
+
+    it('should match format from CookiePlugin and absmartly-worker', () => {
+      const uuid = generateUUID()
+
+      // Timestamp portion (first ~8 chars in base36)
+      const timestampPart = uuid.substring(0, 8)
+      expect(timestampPart).toMatch(/^[0-9a-z]+$/)
+
+      // Random portion (rest of string)
+      const randomPart = uuid.substring(8)
+      expect(randomPart).toMatch(/^[0-9a-z]+$/)
     })
   })
 

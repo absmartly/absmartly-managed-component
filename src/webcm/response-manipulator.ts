@@ -1,4 +1,4 @@
-import { ABSmartlySettings } from '../types'
+import { ABsmartlySettings } from '../types'
 import type { ExperimentData } from '../types'
 import { HTMLProcessor } from '../core/html-processor'
 import { Logger } from '../types'
@@ -12,7 +12,7 @@ interface FetchedRequest extends Response {
 
 export class ResponseManipulator {
   constructor(
-    private settings: ABSmartlySettings,
+    private settings: ABsmartlySettings,
     private logger: Logger
   ) {}
 

@@ -1,9 +1,10 @@
 import { Client } from '@managed-components/types'
-import { ABSmartlySettings, Logger } from '../types'
+import { ABsmartlySettings, Logger, ClientSetOptions } from '../types'
 import { generateUUID } from '../utils/serializer'
+import { COOKIE_NAMES, COOKIE_DEFAULTS } from '../constants/cookies'
 
 export interface CookieHandlerOptions {
-  settings: ABSmartlySettings
+  settings: ABsmartlySettings
   logger: Logger
 }
 
@@ -11,14 +12,14 @@ export class CookieHandler {
   private options: CookieHandlerOptions
 
   constructor(
-    settingsOrOptions: ABSmartlySettings | CookieHandlerOptions,
+    settingsOrOptions: ABsmartlySettings | CookieHandlerOptions,
     legacyLogger?: Logger
   ) {
     if ('settings' in settingsOrOptions && 'logger' in settingsOrOptions) {
       this.options = settingsOrOptions as CookieHandlerOptions
     } else {
       this.options = {
-        settings: settingsOrOptions as ABSmartlySettings,
+        settings: settingsOrOptions as ABsmartlySettings,
         logger: legacyLogger || console,
       }
     }
@@ -73,7 +74,7 @@ export class CookieHandler {
   private validateUTMParam(value: string): string {
     if (value.length > 500) {
       this.options.logger.warn(
-        '[ABSmartly MC] UTM parameter exceeds 500 characters, truncating'
+        '[ABsmartly MC] UTM parameter exceeds 500 characters, truncating'
       )
       value = value.slice(0, 500)
     }
@@ -82,12 +83,12 @@ export class CookieHandler {
   }
 
   getUserId(client: Client): string {
-    const cookieName = this.options.settings.COOKIE_NAME || 'absmartly_id'
+    const cookieName = this.options.settings.COOKIE_NAME || COOKIE_NAMES.UNIT_ID
     return client.get(cookieName) || ''
   }
 
   ensureUserId(client: Client): string {
-    const cookieName = this.options.settings.COOKIE_NAME || 'absmartly_id'
+    const cookieName = this.options.settings.COOKIE_NAME || COOKIE_NAMES.UNIT_ID
     let userId = client.get(cookieName)
 
     if (!userId) {
@@ -104,13 +105,18 @@ export class CookieHandler {
   }
 
   setUserId(client: Client, userId: string): void {
-    const cookieName = this.options.settings.COOKIE_NAME || 'absmartly_id'
-    const maxAge = (this.options.settings.COOKIE_MAX_AGE || 365) * 86400
+    const cookieName = this.options.settings.COOKIE_NAME || COOKIE_NAMES.UNIT_ID
+    const maxAge =
+      (this.options.settings.COOKIE_MAX_AGE || COOKIE_DEFAULTS.MAX_AGE_DAYS) *
+      86400
 
     client.set(cookieName, userId, {
       scope: 'infinite',
       expiry: maxAge,
-    })
+      httpOnly: this.options.settings.COOKIE_HTTPONLY !== false,
+      secure: this.options.settings.COOKIE_SECURE !== false,
+      sameSite: this.options.settings.COOKIE_SAMESITE || 'Lax',
+    } as ClientSetOptions)
   }
 
   getUTMParams(client: Client): Record<string, string> {
@@ -139,18 +145,21 @@ export class CookieHandler {
     const utmParams = this.getUTMParams(client)
 
     if (Object.keys(utmParams).length > 0) {
-      const existing = client.get('absmartly_utm')
+      const existing = client.get(COOKIE_NAMES.UTM_PARAMS)
       if (!existing) {
-        client.set('absmartly_utm', JSON.stringify(utmParams), {
+        client.set(COOKIE_NAMES.UTM_PARAMS, JSON.stringify(utmParams), {
           scope: 'infinite',
           expiry: 30 * 86400,
-        })
+          httpOnly: true,
+          secure: this.options.settings.COOKIE_SECURE !== false,
+          sameSite: this.options.settings.COOKIE_SAMESITE || 'Lax',
+        } as ClientSetOptions)
       }
     }
   }
 
   getStoredUTMParams(client: Client): Record<string, string> {
-    const stored = client.get('absmartly_utm')
+    const stored = client.get(COOKIE_NAMES.UTM_PARAMS)
     if (stored) {
       try {
         return JSON.parse(stored)
@@ -166,41 +175,54 @@ export class CookieHandler {
   }
 
   storeLandingPage(client: Client): void {
-    const existing = client.get('absmartly_landing')
+    const existing = client.get(COOKIE_NAMES.LANDING_PAGE)
     if (!existing) {
-      client.set('absmartly_landing', client.url.toString(), {
+      client.set(COOKIE_NAMES.LANDING_PAGE, client.url.toString(), {
         scope: 'infinite',
         expiry: 30 * 86400,
-      })
+        httpOnly: true,
+        secure: this.options.settings.COOKIE_SECURE !== false,
+        sameSite: this.options.settings.COOKIE_SAMESITE || 'Lax',
+      } as ClientSetOptions)
     }
   }
 
   setPublicUserId(client: Client, userId: string): void {
     const cookieName =
-      this.options.settings.PUBLIC_COOKIE_NAME || 'absmartly_public_id'
-    const maxAge = (this.options.settings.COOKIE_MAX_AGE || 365) * 86400
+      this.options.settings.PUBLIC_COOKIE_NAME || COOKIE_NAMES.PUBLIC_ID
+    const maxAge =
+      (this.options.settings.COOKIE_MAX_AGE || COOKIE_DEFAULTS.MAX_AGE_DAYS) *
+      86400
 
     client.set(cookieName, userId, {
       scope: 'page',
       expiry: maxAge,
-    })
+      httpOnly: false, // Public cookie must be accessible from JavaScript
+      secure: this.options.settings.COOKIE_SECURE !== false,
+      sameSite: this.options.settings.COOKIE_SAMESITE || 'Lax',
+    } as ClientSetOptions)
   }
 
   setExpiryTimestamp(client: Client): void {
     const cookieName =
-      this.options.settings.EXPIRY_COOKIE_NAME || 'absmartly_expiry'
-    const maxAge = (this.options.settings.COOKIE_MAX_AGE || 365) * 86400
+      this.options.settings.EXPIRY_COOKIE_NAME || COOKIE_NAMES.EXPIRY
+    const maxAge =
+      (this.options.settings.COOKIE_MAX_AGE || COOKIE_DEFAULTS.MAX_AGE_DAYS) *
+      86400
     const expiryDate = new Date(Date.now() + maxAge * 1000).toISOString()
 
     client.set(cookieName, expiryDate, {
       scope: 'page',
       expiry: maxAge,
-    })
+      httpOnly: false, // Expiry cookie needs to be readable by JavaScript
+      secure: this.options.settings.COOKIE_SECURE !== false,
+      sameSite: this.options.settings.COOKIE_SAMESITE || 'Lax',
+    } as ClientSetOptions)
   }
 
   getExpiryTimestamp(client: Client): string | null {
     const cookieName =
-      this.options.settings.EXPIRY_COOKIE_NAME || 'absmartly_expiry'
+      this.options.settings.EXPIRY_COOKIE_NAME || COOKIE_NAMES.EXPIRY
     return client.get(cookieName) || null
   }
 

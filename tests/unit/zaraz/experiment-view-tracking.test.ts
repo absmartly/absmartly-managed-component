@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Manager, MCEvent, Client } from '@managed-components/types'
 import { setupZarazMode } from '../../../src/zaraz/setup'
-import { ABSmartlySettings } from '../../../src/types'
+import { ABsmartlySettings } from '../../../src/types'
 import { ContextManager } from '../../../src/core/context-manager'
 import { createTestSDK, createTestContext } from '../../helpers/sdk-helper'
 import { basicExperimentData } from '../../fixtures/absmartly-context-data'
-import type { EventLogger } from '@absmartly/javascript-sdk/types/sdk'
-import type { EventName, EventLoggerData } from '@absmartly/javascript-sdk/types/sdk'
+
+type EventName = 'error' | 'ready' | 'refresh' | 'publish' | 'exposure' | 'goal' | 'finalize'
+type EventLoggerData = Record<string, unknown>
+type EventLogger = (context: unknown, eventName: EventName, data?: EventLoggerData) => void
 
 // Captured events for verification
 interface CapturedEvent {
@@ -67,12 +69,12 @@ describe('ExperimentView Tracking', () => {
   let mockContextManager: any
   let mockContext: any
 
-  const createMockSettings = (): ABSmartlySettings => ({
+  const createMockSettings = (): ABsmartlySettings => ({
     DEPLOYMENT_MODE: 'zaraz',
-    ABSMARTLY_API_KEY: 'test-key',
-    ABSMARTLY_ENDPOINT: 'https://test.absmartly.io',
-    ABSMARTLY_ENVIRONMENT: 'test',
-    ABSMARTLY_APPLICATION: 'test-app',
+    SDK_API_KEY: 'test-key',
+    ENDPOINT: 'https://test.absmartly.io',
+    ENVIRONMENT: 'test',
+    APPLICATION: 'test-app',
     ENABLE_DEBUG: false,
   })
 

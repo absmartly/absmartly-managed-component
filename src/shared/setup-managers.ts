@@ -1,5 +1,5 @@
 import { Manager } from '@managed-components/types'
-import { ABSmartlySettings, Logger } from '../types'
+import { ABsmartlySettings, Logger } from '../types'
 import { ContextManager } from '../core/context-manager'
 import { CookieHandler } from '../core/cookie-handler'
 import { OverridesHandler } from '../core/overrides-handler'
@@ -28,12 +28,12 @@ export interface CoreManagers {
  */
 export function createCoreManagers(
   manager: Manager,
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   logger: Logger
 ): CoreManagers {
-  const contextManager = new ContextManager(manager, settings, logger)
+  const contextManager = new ContextManager(settings, logger)
   const cookieHandler = new CookieHandler({ settings, logger })
-  const overridesHandler = new OverridesHandler(logger)
+  const overridesHandler = new OverridesHandler(settings, logger)
   const eventTracker = new EventTracker(
     manager,
     contextManager,

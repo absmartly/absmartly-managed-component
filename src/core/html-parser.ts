@@ -64,7 +64,7 @@ export class HTMLParser {
       try {
         modifiedHTML = this.applyChange(modifiedHTML, change)
       } catch (error) {
-        this.logger?.error('[ABSmartly MC] Failed to apply change:', error)
+        this.logger?.error('[ABsmartly MC] Failed to apply change:', error)
       }
     }
 
@@ -136,7 +136,7 @@ export class HTMLParser {
 
       default:
         this.logger?.warn(
-          '[ABSmartly MC] Unsupported server-side change type:',
+          '[ABsmartly MC] Unsupported server-side change type:',
           type
         )
         return html
@@ -152,7 +152,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -171,7 +171,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -191,7 +191,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -240,7 +240,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -267,7 +267,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -290,7 +290,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -321,7 +321,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -359,7 +359,7 @@ export class HTMLParser {
     // Null safety guard
     if (!tag) {
       this.logger?.warn(
-        '[ABSmartly MC] Invalid selector, no tag found:',
+        '[ABsmartly MC] Invalid selector, no tag found:',
         selector
       )
       return html
@@ -385,7 +385,7 @@ export class HTMLParser {
 
     if (!target) {
       this.logger?.warn(
-        '[ABSmartly MC] Move operation requires a target selector'
+        '[ABsmartly MC] Move operation requires a target selector'
       )
       return html
     }
@@ -397,7 +397,7 @@ export class HTMLParser {
     // Null safety guard
     if (!sourceMatch) {
       this.logger?.warn(
-        '[ABSmartly MC] Source element not found for move:',
+        '[ABsmartly MC] Source element not found for move:',
         selector
       )
       return html

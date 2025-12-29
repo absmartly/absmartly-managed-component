@@ -9,7 +9,7 @@ export const INIT_TEMPLATE = `/**
   var selector = '{{SELECTOR}}';
 
   if (debug) {
-    console.log('[ABSmartly] Client bundle initialized');
+    console.log('[ABsmartly] Client bundle initialized');
   }
 
   // Remove anti-flicker and reveal page after a short delay
@@ -26,10 +26,10 @@ export const INIT_TEMPLATE = `/**
       }
 
       if (debug) {
-        console.log('[ABSmartly] Page revealed, client bundle ready');
+        console.log('[ABsmartly] Page revealed, client bundle ready');
       }
     } catch (error) {
-      console.error('[ABSmartly] Error removing anti-flicker:', error);
+      console.error('[ABsmartly] Error removing anti-flicker:', error);
       // Fallback: ensure page is revealed
       var element = document.querySelector(selector);
       if (element) {
@@ -39,7 +39,7 @@ export const INIT_TEMPLATE = `/**
   }, 50);
 
   // Handle initialization errors
-  window.ABSmartlyInit = {
+  window.ABsmartlyInit = {
     initialized: true,
     debug: debug
   };

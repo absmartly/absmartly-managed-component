@@ -1,5 +1,5 @@
 import { MCEvent } from '@managed-components/types'
-import { ABSmartlySettings } from '../types'
+import { ABsmartlySettings } from '../types'
 import { Logger } from '../types'
 import {
   injectFailsafe,
@@ -13,7 +13,7 @@ import {
  */
 export class ClientInjector {
   constructor(
-    private settings: ABSmartlySettings,
+    private settings: ABsmartlySettings,
     private logger: Logger
   ) {}
 

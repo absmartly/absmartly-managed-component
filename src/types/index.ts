@@ -1,21 +1,41 @@
-import { ComponentSettings as MCComponentSettings } from '@managed-components/types'
+import {
+  ComponentSettings as MCComponentSettings,
+  ClientSetOptions as MCClientSetOptions,
+} from '@managed-components/types'
 
-export interface ABSmartlySettings extends MCComponentSettings {
+/**
+ * Extended ClientSetOptions to include security flags
+ * These are not officially documented in the Managed Components API,
+ * but Zaraz may respect them when setting cookies
+ */
+export interface ClientSetOptions extends MCClientSetOptions {
+  httpOnly?: boolean
+  secure?: boolean
+  sameSite?: 'Lax' | 'Strict' | 'None'
+}
+
+export interface ABsmartlySettings extends MCComponentSettings {
   // Deployment
   DEPLOYMENT_MODE: 'zaraz' | 'webcm'
 
+  // Zaraz Config (JSON string with all settings - individual options override these)
+  ZARAZ_CONFIG?: string
+
   // ABsmartly
-  ABSMARTLY_API_KEY: string
-  ABSMARTLY_ENDPOINT: string
-  ABSMARTLY_ENVIRONMENT: string
-  ABSMARTLY_APPLICATION: string
+  SDK_API_KEY: string
+  ENDPOINT: string
+  ENVIRONMENT: string
+  APPLICATION: string
+  UNIT_TYPE?: string // Default: 'user_id'
 
   // Cookie Management
+  // Note: Cookie names are defined in src/constants/cookies.ts
+  // These settings allow overriding the defaults if needed
   ENABLE_COOKIE_MANAGEMENT?: boolean
-  COOKIE_NAME?: string
-  PUBLIC_COOKIE_NAME?: string
-  EXPIRY_COOKIE_NAME?: string
-  COOKIE_MAX_AGE?: number
+  COOKIE_NAME?: string // Default: COOKIE_NAMES.UNIT_ID ('abs')
+  PUBLIC_COOKIE_NAME?: string // Default: COOKIE_NAMES.PUBLIC_ID ('abs_public')
+  EXPIRY_COOKIE_NAME?: string // Default: COOKIE_NAMES.EXPIRY ('abs_expiry')
+  COOKIE_MAX_AGE?: number // Default: COOKIE_DEFAULTS.MAX_AGE_DAYS (730 days)
   COOKIE_DOMAIN?: string
   COOKIE_HTTPONLY?: boolean
   COOKIE_SECURE?: boolean
@@ -33,26 +53,33 @@ export interface ABSmartlySettings extends MCComponentSettings {
 
   // Features
   ENABLE_WEB_VITALS?: boolean
-  ENABLE_EMBEDS?: boolean
+  ENABLE_EMBEDS?: boolean // Default: true (enables server-side DOM changes and Treatment tags)
   ENABLE_DEBUG?: boolean
   ENABLE_OVERRIDES?: boolean
   ENABLE_UTM_TRACKING?: boolean
   ENABLE_SERVER_SIDE_INIT?: boolean
+  INCLUDE_IP_IN_ATTRIBUTES?: boolean // Default: false (include client IP address in context attributes)
 
   // Client SDK Injection
   INJECT_CLIENT_SDK?: boolean
   PASS_SERVER_PAYLOAD?: boolean
+  PROXY_SDK_REQUESTS?: boolean // Route SDK requests through Worker proxy (keeps API key secure)
+  PROXY_ROUTE_PATH?: string // Internal: Actual proxy route path (set at runtime by Zaraz)
   CLIENT_SDK_STRATEGY?: 'cdn' | 'custom' | 'zaraz-bundle' | 'bundled'
   CLIENT_SDK_URL?: string
   CLIENT_SDK_CDN_PROVIDER?: 'unpkg' | 'jsdelivr'
   CLIENT_SDK_VERSION?: string
+
+  // SDK Plugins
+  ENABLE_DOM_CHANGES_PLUGIN?: boolean // Default: true
+  ENABLE_COOKIE_PLUGIN?: boolean // Default: true
+  ENABLE_WEB_VITALS_PLUGIN?: boolean // Default: true
 
   // Overrides
   OVERRIDE_QUERY_PREFIX?: string
 
   // Performance
   SDK_TIMEOUT?: number
-  CONTEXT_CACHE_TTL?: number
 
   // WebCM Track Endpoint (WebCM mode only)
   TRACK_ENDPOINT?: string // Default: '/absmartly'
@@ -78,7 +105,7 @@ export interface SDKConfig {
 }
 
 // ABsmartly SDK Experiment (from context.getData().experiments)
-export interface ABSmartlyExperiment {
+export interface ABsmartlyExperiment {
   id: number
   name: string
   unitType: string
@@ -105,12 +132,12 @@ export interface ABSmartlyExperiment {
 }
 
 // ABsmartly SDK Context Data (returned from context.getData())
-export interface ABSmartlyContextData {
-  experiments: ABSmartlyExperiment[]
+export interface ABsmartlyContextData {
+  experiments: ABsmartlyExperiment[]
 }
 
 // ABsmartly SDK Context instance (the context object returned by SDK.createContext)
-export interface ABSmartlyContext {
+export interface ABsmartlyContext {
   ready: () => Promise<void>
   peek: (experimentName: string) => number | undefined
   treatment: (experimentName: string) => number
@@ -118,8 +145,8 @@ export interface ABSmartlyContext {
   overrides: (experimentVariants: Record<string, number>) => void
   attributes: (attrs: Record<string, unknown>) => void
   track: (eventName: string, properties?: Record<string, unknown>) => void
-  data: () => ABSmartlyContextData
-  getData: () => ABSmartlyContextData
+  data: () => ABsmartlyContextData
+  getData: () => ABsmartlyContextData
   getContextData: () => unknown
   publish: () => Promise<void>
 }
@@ -167,7 +194,7 @@ export interface ExperimentData {
 
 export interface ContextData {
   experiments: ExperimentData[]
-  contextData?: ABSmartlyContextData
+  contextData?: ABsmartlyContextData
 }
 
 export interface OverridesMap {

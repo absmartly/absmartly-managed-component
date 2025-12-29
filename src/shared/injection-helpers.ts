@@ -1,5 +1,5 @@
 import { MCEvent } from '@managed-components/types'
-import { ABSmartlySettings, Logger } from '../types'
+import { ABsmartlySettings, Logger } from '../types'
 import { escapeSelectorForJS } from '../utils/selector-validator'
 import { generateClientBundle } from './client-bundle-generator'
 import { injectIntoHTML } from '../utils/html-injection'
@@ -10,7 +10,7 @@ import { injectIntoHTML } from '../utils/html-injection'
  */
 export function injectFailsafe(
   event: MCEvent,
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   logger: Logger
 ): void {
   const selector = escapeSelectorForJS(settings.HIDE_SELECTOR || 'body')
@@ -37,7 +37,7 @@ export function injectFailsafe(
  */
 export function injectDebugInfo(
   event: MCEvent,
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   logger: Logger
 ): void {
   if (!settings.ENABLE_DEBUG) return
@@ -52,8 +52,8 @@ export function injectDebugInfo(
 
   const debugScript = `
     <script>
-      console.log('[ABSmartly] ${modeDisplay} mode initialized');
-      console.log('[ABSmartly] Settings:', {
+      console.log('[ABsmartly] ${modeDisplay} mode initialized');
+      console.log('[ABsmartly] Settings:', {
         deployment: '${settings.DEPLOYMENT_MODE}',
         antiFlicker: ${settings.ENABLE_ANTI_FLICKER !== false},
         triggerOnView: ${settings.ENABLE_TRIGGER_ON_VIEW !== false}
@@ -75,7 +75,7 @@ export function injectDebugInfo(
  */
 export function injectClientBundleViaExecute(
   event: MCEvent,
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   logger: Logger
 ): void {
   try {
@@ -102,7 +102,7 @@ export function injectClientBundleViaExecute(
  */
 export function injectClientBundleIntoHTML(
   html: string,
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   logger: Logger
 ): string {
   if (settings.INJECT_CLIENT_BUNDLE === false) {

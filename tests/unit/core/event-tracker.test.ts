@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventTracker } from '../../../src/core/event-tracker'
 import { ContextManager } from '../../../src/core/context-manager'
 import { CookieHandler } from '../../../src/core/cookie-handler'
-import { ABSmartlySettings, Logger } from '../../../src/types'
+import { ABsmartlySettings, Logger } from '../../../src/types'
 import { Manager, MCEvent, Client } from '@managed-components/types'
 
 describe('EventTracker', () => {
   let manager: Partial<Manager>
   let contextManager: Partial<ContextManager>
   let cookieHandler: Partial<CookieHandler>
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let logger: Logger
   let mockEvent: Partial<MCEvent>
   let mockClient: Partial<Client>
@@ -33,12 +33,12 @@ describe('EventTracker', () => {
 
     settings = {
       DEPLOYMENT_MODE: 'zaraz',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'production',
-      ABSMARTLY_APPLICATION: 'test-app',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'production',
+      APPLICATION: 'test-app',
       ENABLE_WEB_VITALS: true,
-    } as ABSmartlySettings
+    } as ABsmartlySettings
 
     logger = {
       log: vi.fn(),

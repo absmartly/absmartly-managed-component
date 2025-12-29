@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ResponseManipulator } from '../../../src/webcm/response-manipulator'
-import { ABSmartlySettings, Logger, ExperimentData } from '../../../src/types'
+import { ABsmartlySettings, Logger, ExperimentData } from '../../../src/types'
 
 // FetchedRequest is not exported from @managed-components/types, define locally
 interface FetchedRequest extends Response {
@@ -8,7 +8,7 @@ interface FetchedRequest extends Response {
 }
 
 describe('ResponseManipulator', () => {
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let logger: Logger
   let mockRequest: Partial<FetchedRequest>
 
@@ -30,13 +30,13 @@ describe('ResponseManipulator', () => {
   beforeEach(() => {
     settings = {
       DEPLOYMENT_MODE: 'webcm',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'production',
-      ABSMARTLY_APPLICATION: 'test-app',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'production',
+      APPLICATION: 'test-app',
       INJECT_CLIENT_DATA: true,
       EXCLUDED_PATHS: ['/api/', '/static/'],
-    } as ABSmartlySettings
+    } as ABsmartlySettings
 
     logger = {
       log: vi.fn(),

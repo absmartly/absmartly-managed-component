@@ -8,7 +8,7 @@ function logWarn(logger: Logger | undefined, ...args: unknown[]): void {
   if (logger) {
     logger.warn(...args)
   } else {
-    console.warn('[ABSmartly MC]', ...args)
+    console.warn('[ABsmartly MC]', ...args)
   }
 }
 

@@ -4,7 +4,7 @@ function logError(logger: Logger | undefined, ...args: unknown[]): void {
   if (logger) {
     logger.error(...args)
   } else {
-    console.error('[ABSmartly MC]', ...args)
+    console.error('[ABsmartly MC]', ...args)
   }
 }
 
@@ -32,13 +32,20 @@ export function deserializeContextData(
   }
 }
 
-export function generateSessionId(userId: string): string {
-  // Simple session ID based on user + date
-  const date = new Date().toISOString().split('T')[0]
-  return `${userId}_${date}`
+/**
+ * Generate a fast unique ID (timestamp + random)
+ * Matches the ID generation from CookiePlugin and absmartly-worker
+ * Format: timestamp (base36) + random (base36)
+ * Example: "l1234abc56def" (15-20 characters)
+ */
+export function generateUUID(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2)
 }
 
-export function generateUUID(): string {
+/**
+ * Legacy UUID v4 generator (not used, kept for reference)
+ */
+export function generateUUIDv4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0
     const v = c === 'x' ? r : (r & 0x3) | 0x8

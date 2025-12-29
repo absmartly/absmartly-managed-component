@@ -13,7 +13,7 @@ export const TRIGGER_ON_VIEW_TEMPLATE = `/**
   // Skip if IntersectionObserver not supported
   if (typeof IntersectionObserver === 'undefined') {
     if (debug) {
-      console.warn('[ABSmartly] IntersectionObserver not supported, trigger-on-view disabled');
+      console.warn('[ABsmartly] IntersectionObserver not supported, trigger-on-view disabled');
     }
     return;
   }
@@ -40,7 +40,7 @@ export const TRIGGER_ON_VIEW_TEMPLATE = `/**
     // Check if already tracked (prevent duplicates)
     if (trackedExperiments.has(experimentName)) {
       if (debug) {
-        console.log('[ABSmartly] Experiment already tracked, skipping:', experimentName);
+        console.log('[ABsmartly] Experiment already tracked, skipping:', experimentName);
       }
       return;
     }
@@ -49,7 +49,7 @@ export const TRIGGER_ON_VIEW_TEMPLATE = `/**
     trackedExperiments.add(experimentName);
 
     if (debug) {
-      console.log('[ABSmartly] Tracking on-view exposure:', experimentName);
+      console.log('[ABsmartly] Tracking on-view exposure:', experimentName);
     }
 
     if (mode === 'zaraz') {
@@ -57,7 +57,7 @@ export const TRIGGER_ON_VIEW_TEMPLATE = `/**
       if (typeof zaraz !== 'undefined' && zaraz.track) {
         zaraz.track('ExperimentView', { experimentName: experimentName });
       } else if (debug) {
-        console.warn('[ABSmartly] zaraz.track not available, cannot track exposure for:', experimentName);
+        console.warn('[ABsmartly] zaraz.track not available, cannot track exposure for:', experimentName);
       }
     } else if (mode === 'webcm') {
       // WebCM mode: POST to /absmartly endpoint
@@ -74,11 +74,11 @@ export const TRIGGER_ON_VIEW_TEMPLATE = `/**
           keepalive: true // Ensure request completes even if page unloads
         }).catch(function(error) {
           if (debug) {
-            console.error('[ABSmartly] Failed to track exposure:', error);
+            console.error('[ABsmartly] Failed to track exposure:', error);
           }
         });
       } else if (debug) {
-        console.warn('[ABSmartly] fetch not available, cannot track exposure for:', experimentName);
+        console.warn('[ABsmartly] fetch not available, cannot track exposure for:', experimentName);
       }
     }
   }
@@ -88,7 +88,7 @@ export const TRIGGER_ON_VIEW_TEMPLATE = `/**
     var elements = document.querySelectorAll('[trigger-on-view]');
 
     if (debug) {
-      console.log('[ABSmartly] Scanning for trigger-on-view elements, found:', elements.length);
+      console.log('[ABsmartly] Scanning for trigger-on-view elements, found:', elements.length);
     }
 
     elements.forEach(function(element) {
@@ -97,7 +97,7 @@ export const TRIGGER_ON_VIEW_TEMPLATE = `/**
         intersectionObserver.observe(element);
 
         if (debug) {
-          console.log('[ABSmartly] Set up trigger-on-view tracking for:', experimentName);
+          console.log('[ABsmartly] Set up trigger-on-view tracking for:', experimentName);
         }
       }
     });

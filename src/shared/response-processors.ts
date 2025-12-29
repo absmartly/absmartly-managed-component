@@ -1,4 +1,4 @@
-import { ABSmartlySettings, ExperimentData, Logger } from '../types'
+import { ABsmartlySettings, ExperimentData, Logger } from '../types'
 import { HTMLProcessor } from '../core/html-processor'
 
 /**
@@ -7,14 +7,14 @@ import { HTMLProcessor } from '../core/html-processor'
  *
  * @param html - HTML string to process
  * @param experimentData - Experiment data to apply
- * @param settings - ABSmartly settings
+ * @param settings - ABsmartly settings
  * @param logger - Logger instance
  * @returns Processed HTML string
  */
 export function processHTMLWithExperiments(
   html: string,
   experimentData: ExperimentData[],
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   logger: Logger
 ): string {
   const processor = new HTMLProcessor({

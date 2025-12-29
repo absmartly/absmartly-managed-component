@@ -1,6 +1,6 @@
 import { Manager, MCEvent } from '@managed-components/types'
 import {
-  ABSmartlySettings,
+  ABsmartlySettings,
   EventPayload,
   EcommercePayload,
   WebVitalMetric,
@@ -14,7 +14,7 @@ export class EventTracker {
     private manager: Manager,
     private contextManager: ContextManager,
     private cookieHandler: CookieHandler,
-    private settings: ABSmartlySettings,
+    private settings: ABsmartlySettings,
     private logger: Logger
   ) {}
 

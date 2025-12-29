@@ -1,7 +1,7 @@
 import { Manager, MCEvent } from '@managed-components/types'
-import { ABSmartlySettings } from '../types'
+import { ABsmartlySettings } from '../types'
 import { createCoreManagers } from '../shared/setup-managers'
-import { ABSmartlyEndpointHandler } from './absmartly-endpoint-handler'
+import { ABsmartlyEndpointHandler } from './absmartly-endpoint-handler'
 import { createLogger } from '../utils/logger'
 import { injectIntoHTML } from '../utils/html-injection'
 import {
@@ -18,12 +18,16 @@ import {
   createResponseFromHTML,
   shouldExcludePath,
 } from '../shared/response-processors'
+import { parseAndMergeConfig } from '../utils/config-parser'
 
 export function setupWebCMMode(
   manager: Manager,
-  settings: ABSmartlySettings
+  settings: ABsmartlySettings
 ): () => void {
-  const logger = createLogger(settings.ENABLE_DEBUG || false)
+  const logger = createLogger(settings.ENABLE_DEBUG || false, 'webcm')
+
+  settings = parseAndMergeConfig(settings, logger)
+
   logger.log('Initializing ABsmartly Managed Component - WebCM mode')
 
   if (isDuplicateSetup(manager, logger)) {
@@ -36,7 +40,7 @@ export function setupWebCMMode(
     logger
   )
 
-  const endpointHandler = new ABSmartlyEndpointHandler(settings, logger)
+  const endpointHandler = new ABsmartlyEndpointHandler(settings, logger)
 
   const requestListener = async (event: MCEvent) => {
     const isEndpointHandled = await endpointHandler.handleRequest(event)

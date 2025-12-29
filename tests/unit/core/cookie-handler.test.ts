@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CookieHandler } from '../../../src/core/cookie-handler'
-import { ABSmartlySettings } from '../../../src/types'
+import { ABsmartlySettings } from '../../../src/types'
 import { Client } from '@managed-components/types'
+import { COOKIE_NAMES, COOKIE_DEFAULTS } from '../../../src/constants/cookies'
 
 describe('CookieHandler', () => {
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let mockClient: Partial<Client>
   let cookieStorage: Map<string, string>
 
@@ -23,13 +24,16 @@ describe('CookieHandler', () => {
   beforeEach(() => {
     settings = {
       DEPLOYMENT_MODE: 'zaraz',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'production',
-      ABSMARTLY_APPLICATION: 'test-app',
-      COOKIE_NAME: 'absmartly_id',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'production',
+      APPLICATION: 'test-app',
+      COOKIE_NAME: COOKIE_NAMES.UNIT_ID,
       COOKIE_MAX_AGE: 365,
-    } as ABSmartlySettings
+      COOKIE_SECURE: true,
+      COOKIE_HTTPONLY: true,
+      COOKIE_SAMESITE: 'Lax',
+    } as ABsmartlySettings
 
     cookieStorage = new Map()
     mockClient = createMockClient()
@@ -37,13 +41,13 @@ describe('CookieHandler', () => {
 
   describe('getUserId', () => {
     it('should return existing user ID from cookie', () => {
-      cookieStorage.set('absmartly_id', 'existing-user-id')
+      cookieStorage.set(COOKIE_NAMES.UNIT_ID, 'existing-user-id')
       const handler = new CookieHandler(settings)
 
       const userId = handler.getUserId(mockClient as Client)
 
       expect(userId).toBe('existing-user-id')
-      expect(mockClient.get).toHaveBeenCalledWith('absmartly_id')
+      expect(mockClient.get).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID)
       expect(mockClient.set).not.toHaveBeenCalled()
     })
 
@@ -53,7 +57,7 @@ describe('CookieHandler', () => {
       const userId = handler.getUserId(mockClient as Client)
 
       expect(userId).toBe('')
-      expect(mockClient.get).toHaveBeenCalledWith('absmartly_id')
+      expect(mockClient.get).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID)
       expect(mockClient.set).not.toHaveBeenCalled()
     })
 
@@ -70,25 +74,25 @@ describe('CookieHandler', () => {
 
     it('should use default cookie name if not specified', () => {
       delete settings.COOKIE_NAME
-      cookieStorage.set('absmartly_id', 'default-user-id')
+      cookieStorage.set(COOKIE_NAMES.UNIT_ID, 'default-user-id')
       const handler = new CookieHandler(settings)
 
       const userId = handler.getUserId(mockClient as Client)
 
       expect(userId).toBe('default-user-id')
-      expect(mockClient.get).toHaveBeenCalledWith('absmartly_id')
+      expect(mockClient.get).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID)
     })
   })
 
   describe('ensureUserId', () => {
     it('should return existing user ID if present', () => {
-      cookieStorage.set('absmartly_id', 'existing-user-id')
+      cookieStorage.set(COOKIE_NAMES.UNIT_ID, 'existing-user-id')
       const handler = new CookieHandler(settings)
 
       const userId = handler.ensureUserId(mockClient as Client)
 
       expect(userId).toBe('existing-user-id')
-      expect(mockClient.get).toHaveBeenCalledWith('absmartly_id')
+      expect(mockClient.get).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID)
       expect(mockClient.set).not.toHaveBeenCalled()
     })
 
@@ -99,7 +103,9 @@ describe('CookieHandler', () => {
       const userId = handler.ensureUserId(mockClient as Client)
 
       expect(userId).toBeTruthy()
-      expect(userId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      // UUID format is base36 timestamp + random (e.g., "l1234abc56def")
+      expect(userId.length).toBeGreaterThanOrEqual(15)
+      expect(userId).toMatch(/^[a-z0-9]+$/)
       expect(mockClient.set).not.toHaveBeenCalled()
     })
 
@@ -110,12 +116,14 @@ describe('CookieHandler', () => {
       const userId = handler.ensureUserId(mockClient as Client)
 
       expect(userId).toBeTruthy()
-      expect(userId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      // UUID format is base36 timestamp + random (e.g., "l1234abc56def")
+      expect(userId.length).toBeGreaterThanOrEqual(15)
+      expect(userId).toMatch(/^[a-z0-9]+$/)
 
       // Should set both private and public cookies
-      expect(mockClient.set).toHaveBeenCalledWith('absmartly_id', userId, expect.any(Object))
-      expect(mockClient.set).toHaveBeenCalledWith('absmartly_public_id', userId, expect.any(Object))
-      expect(mockClient.set).toHaveBeenCalledWith('absmartly_expiry', expect.any(String), expect.any(Object))
+      expect(mockClient.set).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID, userId, expect.any(Object))
+      expect(mockClient.set).toHaveBeenCalledWith(COOKIE_NAMES.PUBLIC_ID, userId, expect.any(Object))
+      expect(mockClient.set).toHaveBeenCalledWith(COOKIE_NAMES.EXPIRY, expect.any(String), expect.any(Object))
     })
   })
 
@@ -125,9 +133,12 @@ describe('CookieHandler', () => {
 
       handler.setUserId(mockClient as Client, 'test-user-id')
 
-      expect(mockClient.set).toHaveBeenCalledWith('absmartly_id', 'test-user-id', {
+      expect(mockClient.set).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID, 'test-user-id', {
         scope: 'infinite',
         expiry: 365 * 86400,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
       })
     })
 
@@ -137,9 +148,12 @@ describe('CookieHandler', () => {
 
       handler.setUserId(mockClient as Client, 'test-user-id')
 
-      expect(mockClient.set).toHaveBeenCalledWith('absmartly_id', 'test-user-id', {
+      expect(mockClient.set).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID, 'test-user-id', {
         scope: 'infinite',
         expiry: 30 * 86400,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
       })
     })
 
@@ -149,9 +163,12 @@ describe('CookieHandler', () => {
 
       handler.setUserId(mockClient as Client, 'test-user-id')
 
-      expect(mockClient.set).toHaveBeenCalledWith('absmartly_id', 'test-user-id', {
+      expect(mockClient.set).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID, 'test-user-id', {
         scope: 'infinite',
         expiry: 365 * 86400,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
       })
     })
 
@@ -161,9 +178,12 @@ describe('CookieHandler', () => {
 
       handler.setUserId(mockClient as Client, 'test-user-id')
 
-      expect(mockClient.set).toHaveBeenCalledWith('absmartly_id', 'test-user-id', {
+      expect(mockClient.set).toHaveBeenCalledWith(COOKIE_NAMES.UNIT_ID, 'test-user-id', {
         scope: 'infinite',
-        expiry: 365 * 86400,
+        expiry: COOKIE_DEFAULTS.MAX_AGE_DAYS * 86400,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
       })
     })
   })
@@ -223,7 +243,7 @@ describe('CookieHandler', () => {
       handler.storeUTMParams(mockClient as Client)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_utm',
+        COOKIE_NAMES.UTM_PARAMS,
         JSON.stringify({
           utm_source: 'google',
           utm_medium: 'cpc',
@@ -231,6 +251,9 @@ describe('CookieHandler', () => {
         {
           scope: 'infinite',
           expiry: 30 * 86400,
+          httpOnly: true,
+          secure: true,
+          sameSite: 'Lax',
         }
       )
     })
@@ -246,7 +269,7 @@ describe('CookieHandler', () => {
 
     it('should not overwrite existing UTM parameters', () => {
       mockClient = createMockClient('https://example.com?utm_source=facebook')
-      cookieStorage.set('absmartly_utm', JSON.stringify({ utm_source: 'google' }))
+      cookieStorage.set(COOKIE_NAMES.UTM_PARAMS, JSON.stringify({ utm_source: 'google' }))
       const handler = new CookieHandler(settings)
 
       handler.storeUTMParams(mockClient as Client)
@@ -258,7 +281,7 @@ describe('CookieHandler', () => {
   describe('getStoredUTMParams', () => {
     it('should return stored UTM parameters from cookie', () => {
       const storedParams = { utm_source: 'google', utm_campaign: 'summer' }
-      cookieStorage.set('absmartly_utm', JSON.stringify(storedParams))
+      cookieStorage.set(COOKIE_NAMES.UTM_PARAMS, JSON.stringify(storedParams))
       const handler = new CookieHandler(settings)
 
       const params = handler.getStoredUTMParams(mockClient as Client)
@@ -275,7 +298,7 @@ describe('CookieHandler', () => {
     })
 
     it('should return empty object if stored data is invalid JSON', () => {
-      cookieStorage.set('absmartly_utm', 'invalid json')
+      cookieStorage.set(COOKIE_NAMES.UTM_PARAMS, 'invalid json')
       const handler = new CookieHandler(settings)
 
       const params = handler.getStoredUTMParams(mockClient as Client)
@@ -312,18 +335,21 @@ describe('CookieHandler', () => {
       handler.storeLandingPage(mockClient as Client)
 
       expect(mockClient.set).toHaveBeenCalledWith(
-        'absmartly_landing',
+        COOKIE_NAMES.LANDING_PAGE,
         'https://example.com/landing',
         {
           scope: 'infinite',
           expiry: 30 * 86400,
+          httpOnly: true,
+          secure: true,
+          sameSite: 'Lax',
         }
       )
     })
 
     it('should not overwrite existing landing page', () => {
       mockClient = createMockClient('https://example.com/second-page')
-      cookieStorage.set('absmartly_landing', 'https://example.com/first-page')
+      cookieStorage.set(COOKIE_NAMES.LANDING_PAGE, 'https://example.com/first-page')
       const handler = new CookieHandler(settings)
 
       handler.storeLandingPage(mockClient as Client)

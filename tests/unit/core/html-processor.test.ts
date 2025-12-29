@@ -1,21 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { HTMLProcessor } from '../../../src/core/html-processor'
-import { ABSmartlySettings, ExperimentData, Logger } from '../../../src/types'
+import { ABsmartlySettings, ExperimentData, Logger } from '../../../src/types'
 
 describe('HTMLProcessor', () => {
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let logger: Logger
   let processor: HTMLProcessor
 
   beforeEach(() => {
     settings = {
       DEPLOYMENT_MODE: 'webcm',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'production',
-      ABSMARTLY_APPLICATION: 'test-app',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'production',
+      APPLICATION: 'test-app',
       ENABLE_EMBEDS: true,
-    } as ABSmartlySettings
+    } as ABsmartlySettings
 
     logger = {
       log: vi.fn(),

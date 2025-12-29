@@ -94,7 +94,7 @@ export class TrackBridge {
       const { returnImmediate, logger } = this.options
 
       if (clientId && !this.checkRateLimit(clientId)) {
-        logger.warn('[ABSmartly MC] Rate limit exceeded', {
+        logger.warn('[ABsmartly MC] Rate limit exceeded', {
           clientId,
           limit: this.RATE_LIMIT,
           window: this.RATE_WINDOW_MS,
@@ -107,7 +107,7 @@ export class TrackBridge {
 
       const bodyStr = JSON.stringify(body)
       if (bodyStr.length > this.MAX_BODY_SIZE) {
-        logger.warn('[ABSmartly MC] Request body exceeds maximum size', {
+        logger.warn('[ABsmartly MC] Request body exceeds maximum size', {
           size: bodyStr.length,
           maxSize: this.MAX_BODY_SIZE,
         })
@@ -144,8 +144,8 @@ export class TrackBridge {
     const { apiEndpoint, apiKey, logger } = this.options
 
     const xAgent = originalUserAgent
-      ? `${originalUserAgent} via ABSmartly MC`
-      : 'ABSmartly MC'
+      ? `${originalUserAgent} via ABsmartly MC`
+      : 'ABsmartly MC'
 
     try {
       const response = await fetch(`${apiEndpoint}/context`, {

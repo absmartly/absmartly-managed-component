@@ -1,17 +1,26 @@
 import { MCEvent } from '@managed-components/types'
-import { OverridesMap, Logger } from '../types'
+import {
+  OverridesMap,
+  Logger,
+  ABsmartlySettings,
+  ClientSetOptions,
+} from '../types'
 import { safeParseJSON } from '../utils/serializer'
+import { COOKIE_NAMES } from '../constants/cookies'
 
 function logError(logger: Logger | undefined, ...args: unknown[]): void {
   if (logger) {
     logger.error(...args)
   } else {
-    console.error('[ABSmartly MC]', ...args)
+    console.error('[ABsmartly MC]', ...args)
   }
 }
 
 export class OverridesHandler {
-  constructor(private logger?: Logger) {}
+  constructor(
+    private settings: ABsmartlySettings,
+    private logger?: Logger
+  ) {}
 
   getOverrides(event: MCEvent): OverridesMap {
     const overrides: OverridesMap = {}
@@ -51,7 +60,7 @@ export class OverridesHandler {
 
   private getCookieOverrides(event: MCEvent): OverridesMap {
     try {
-      const cookieValue = event.client.get('absmartly_overrides')
+      const cookieValue = event.client.get(COOKIE_NAMES.OVERRIDES)
       if (cookieValue) {
         return safeParseJSON<OverridesMap>(cookieValue, {}, this.logger) || {}
       }
@@ -67,17 +76,24 @@ export class OverridesHandler {
     existing[experimentName] = variant
 
     // Store back in cookie
-    event.client.set('absmartly_overrides', JSON.stringify(existing), {
+    // Note: httpOnly=false because this needs to be readable by ABsmartly Browser Extension
+    event.client.set(COOKIE_NAMES.OVERRIDES, JSON.stringify(existing), {
       scope: 'page',
       expiry: 7 * 86400, // 7 days
-    })
+      httpOnly: false,
+      secure: this.settings.COOKIE_SECURE !== false,
+      sameSite: this.settings.COOKIE_SAMESITE || 'Lax',
+    } as ClientSetOptions)
   }
 
   clearOverrides(event: MCEvent): void {
-    event.client.set('absmartly_overrides', '', {
+    event.client.set(COOKIE_NAMES.OVERRIDES, '', {
       scope: 'page',
       expiry: 0,
-    })
+      httpOnly: false,
+      secure: this.settings.COOKIE_SECURE !== false,
+      sameSite: this.settings.COOKIE_SAMESITE || 'Lax',
+    } as ClientSetOptions)
   }
 
   hasOverrides(overrides: OverridesMap): boolean {

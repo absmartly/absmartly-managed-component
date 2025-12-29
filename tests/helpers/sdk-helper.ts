@@ -1,7 +1,7 @@
 import { SDK } from '@absmartly/javascript-sdk'
 import type { EventLogger } from '@absmartly/javascript-sdk/types/sdk'
 import type { ContextData } from '@absmartly/javascript-sdk/types/context'
-import type { ABSmartlyContext } from '../../src/types'
+import type { ABsmartlyContext } from '../../src/types'
 
 export type { EventLogger }
 
@@ -23,7 +23,7 @@ export function createTestContext(
   sdk: typeof SDK.prototype,
   userId: string,
   contextData: ContextData
-): ABSmartlyContext {
+): ABsmartlyContext {
   const context = sdk.createContextWith(
     {
       units: {
@@ -32,7 +32,7 @@ export function createTestContext(
       },
     },
     contextData
-  ) as unknown as ABSmartlyContext
+  ) as unknown as ABsmartlyContext
 
   return context
 }

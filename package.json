@@ -39,6 +39,7 @@
   "homepage": "https://github.com/absmartly/absmartly-managed-component#readme",
   "dependencies": {
     "@absmartly/javascript-sdk": "^1.13.2",
+    "@absmartly/sdk-plugins": "^1.1.2",
     "dompurify": "^3.3.0",
     "linkedom": "^0.18.12"
   },

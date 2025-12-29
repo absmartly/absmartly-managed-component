@@ -34,5 +34,11 @@ module.exports = {
         webcm: 'writable',
       },
     },
+    {
+      files: ['src/zaraz/static/sdk-bundle-inline.ts'],
+      rules: {
+        'prettier/prettier': 'off',
+      },
+    },
   ],
 }

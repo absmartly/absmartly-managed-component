@@ -30,7 +30,7 @@ export class HTMLParserLinkedom {
           this.applyChange(document, change)
         } catch (error) {
           this.logger?.error(
-            '[ABSmartly MC] Failed to apply change:',
+            '[ABsmartly MC] Failed to apply change:',
             error,
             change
           )
@@ -39,7 +39,7 @@ export class HTMLParserLinkedom {
 
       return document.toString()
     } catch (error) {
-      this.logger?.error('[ABSmartly MC] linkedom parsing failed:', {
+      this.logger?.error('[ABsmartly MC] linkedom parsing failed:', {
         error: error instanceof Error ? error.message : String(error),
         htmlLength: this.html.length,
         htmlPreview: this.html.substring(0, 200),
@@ -55,7 +55,7 @@ export class HTMLParserLinkedom {
 
     if (elements.length === 0) {
       this.logger?.warn(
-        '[ABSmartly MC] No elements found for selector:',
+        '[ABsmartly MC] No elements found for selector:',
         selector
       )
       return
@@ -72,7 +72,7 @@ export class HTMLParserLinkedom {
     change: DOMChange
   ): void {
     if (!element) {
-      this.logger?.warn('[ABSmartly MC] Element is null, skipping change')
+      this.logger?.warn('[ABsmartly MC] Element is null, skipping change')
       return
     }
 
@@ -111,7 +111,7 @@ export class HTMLParserLinkedom {
 
       case 'javascript':
         this.logger?.warn(
-          '[ABSmartly MC] JavaScript changes not supported server-side:',
+          '[ABsmartly MC] JavaScript changes not supported server-side:',
           change
         )
         break
@@ -128,7 +128,7 @@ export class HTMLParserLinkedom {
 
       default:
         this.logger?.warn(
-          '[ABSmartly MC] Unsupported change type:',
+          '[ABsmartly MC] Unsupported change type:',
           change.type
         )
     }
@@ -204,7 +204,7 @@ export class HTMLParserLinkedom {
 
     if (!change.target) {
       this.logger?.warn(
-        '[ABSmartly MC] Move operation requires target selector'
+        '[ABsmartly MC] Move operation requires target selector'
       )
       return
     }
@@ -212,14 +212,14 @@ export class HTMLParserLinkedom {
     const target = document.querySelector(change.target)
     if (!target) {
       this.logger?.warn(
-        '[ABSmartly MC] Target not found for move:',
+        '[ABsmartly MC] Target not found for move:',
         change.target
       )
       return
     }
 
     if (!target.parentNode) {
-      this.logger?.warn('[ABSmartly MC] Target has no parent node')
+      this.logger?.warn('[ABsmartly MC] Target has no parent node')
       return
     }
 
@@ -239,7 +239,7 @@ export class HTMLParserLinkedom {
     const config = change.value
 
     if (!config || typeof config !== 'object') {
-      this.logger?.warn('[ABSmartly MC] Invalid create config:', config)
+      this.logger?.warn('[ABsmartly MC] Invalid create config:', config)
       return
     }
 
@@ -278,7 +278,7 @@ export class HTMLParserLinkedom {
       (change.position === 'before' || change.position === 'after')
     ) {
       this.logger?.warn(
-        '[ABSmartly MC] Target has no parent node for before/after position'
+        '[ABsmartly MC] Target has no parent node for before/after position'
       )
       target.appendChild(newElement)
       return

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ClientInjector } from '../../../src/zaraz/client-injector'
-import { ABSmartlySettings, Logger } from '../../../src/types'
+import { ABsmartlySettings, Logger } from '../../../src/types'
 import { MCEvent, Client } from '@managed-components/types'
 
 // Mock the shared client bundle generator
@@ -9,7 +9,7 @@ vi.mock('../../../src/shared/client-bundle-generator', () => ({
 }))
 
 describe('ClientInjector', () => {
-  let settings: ABSmartlySettings
+  let settings: ABsmartlySettings
   let logger: Logger
   let mockEvent: Partial<MCEvent>
   let mockClient: Partial<Client>
@@ -17,15 +17,15 @@ describe('ClientInjector', () => {
   beforeEach(() => {
     settings = {
       DEPLOYMENT_MODE: 'zaraz',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'production',
-      ABSMARTLY_APPLICATION: 'test-app',
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'production',
+      APPLICATION: 'test-app',
       ENABLE_DEBUG: false,
       ENABLE_ANTI_FLICKER: true,
       ENABLE_TRIGGER_ON_VIEW: true,
       HIDE_SELECTOR: 'body',
-    } as ABSmartlySettings
+    } as ABsmartlySettings
 
     logger = {
       log: vi.fn(),
@@ -128,10 +128,10 @@ describe('ClientInjector', () => {
         expect.stringContaining('console.log')
       )
       expect(mockClient.execute).toHaveBeenCalledWith(
-        expect.stringContaining('[ABSmartly] Zaraz mode initialized')
+        expect.stringContaining('[ABsmartly] Zaraz mode initialized')
       )
       expect(mockClient.execute).toHaveBeenCalledWith(
-        expect.stringContaining('[ABSmartly] Settings:')
+        expect.stringContaining('[ABsmartly] Settings:')
       )
     })
 

@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ABSmartlyEndpointHandler } from '../../../src/webcm/absmartly-endpoint-handler'
+import { ABsmartlyEndpointHandler } from '../../../src/webcm/absmartly-endpoint-handler'
 import { EventTracker } from '../../../src/core/event-tracker'
-import type { ABSmartlySettings, Logger } from '../../../src/types'
+import type { ABsmartlySettings, Logger } from '../../../src/types'
 import type { MCEvent } from '@managed-components/types'
 
-describe('ABSmartlyEndpointHandler', () => {
-  let handler: ABSmartlyEndpointHandler
-  let settings: ABSmartlySettings
+describe('ABsmartlyEndpointHandler', () => {
+  let handler: ABsmartlyEndpointHandler
+  let settings: ABsmartlySettings
   let logger: Logger
   let eventTracker: EventTracker
   let mockEvent: any
@@ -14,10 +14,10 @@ describe('ABSmartlyEndpointHandler', () => {
   beforeEach(() => {
     settings = {
       DEPLOYMENT_MODE: 'webcm',
-      ABSMARTLY_API_KEY: 'test-key',
-      ABSMARTLY_ENDPOINT: 'https://api.absmartly.io/v1',
-      ABSMARTLY_ENVIRONMENT: 'test',
-      ABSMARTLY_APPLICATION: 'test-app'
+      SDK_API_KEY: 'test-key',
+      ENDPOINT: 'https://api.absmartly.io/v1',
+      ENVIRONMENT: 'test',
+      APPLICATION: 'test-app'
     }
 
     logger = {
@@ -35,7 +35,7 @@ describe('ABSmartlyEndpointHandler', () => {
       trackExposure: vi.fn()
     } as any
 
-    handler = new ABSmartlyEndpointHandler(settings, logger)
+    handler = new ABsmartlyEndpointHandler(settings, logger)
 
     mockEvent = {
       client: {

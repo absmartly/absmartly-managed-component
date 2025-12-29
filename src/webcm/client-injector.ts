@@ -1,4 +1,4 @@
-import { ABSmartlySettings, Logger } from '../types'
+import { ABsmartlySettings, Logger } from '../types'
 import { injectClientBundleIntoHTML } from '../shared/injection-helpers'
 
 /**
@@ -7,7 +7,7 @@ import { injectClientBundleIntoHTML } from '../shared/injection-helpers'
  */
 export class WebCMClientInjector {
   constructor(
-    private settings: ABSmartlySettings,
+    private settings: ABsmartlySettings,
     private logger: Logger
   ) {}
 

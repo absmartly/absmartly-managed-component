@@ -147,3 +147,9 @@ dist
 
 # Worker wrapper auto-generated files
 worker/src/component.js
+
+# Documentation - ignore all .md files except essential ones
+*.md
+!README.md
+!ZARAZ_SETUP.md
+!ZARAZ_SETTINGS_GUIDE.md

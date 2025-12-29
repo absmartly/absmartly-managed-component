@@ -1,4 +1,4 @@
-import type { ABSmartlySettings, Logger } from '../types'
+import type { ABsmartlySettings, Logger } from '../types'
 
 export interface ValidationResult {
   isValid: boolean
@@ -19,12 +19,6 @@ const NUMERIC_CONSTRAINTS: Record<string, NumericConstraints> = {
     max: 30000,
     fieldName: 'SDK_TIMEOUT',
     defaultValue: 2000,
-  },
-  CONTEXT_CACHE_TTL: {
-    min: 0,
-    max: 86400,
-    fieldName: 'CONTEXT_CACHE_TTL',
-    defaultValue: 300,
   },
   HIDE_TIMEOUT: {
     min: 0,
@@ -91,35 +85,26 @@ export function validateNumericConfig(
 }
 
 export function validateSettings(
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   logger?: Logger
 ): ValidationResult {
   const errors: string[] = []
   const warnings: string[] = []
 
-  if (!settings.ABSMARTLY_API_KEY || settings.ABSMARTLY_API_KEY.trim() === '') {
-    errors.push('ABSMARTLY_API_KEY is required')
+  if (!settings.SDK_API_KEY || settings.SDK_API_KEY.trim() === '') {
+    errors.push('SDK_API_KEY is required')
   }
 
-  if (
-    !settings.ABSMARTLY_ENDPOINT ||
-    settings.ABSMARTLY_ENDPOINT.trim() === ''
-  ) {
-    errors.push('ABSMARTLY_ENDPOINT is required')
+  if (!settings.ENDPOINT || settings.ENDPOINT.trim() === '') {
+    errors.push('ENDPOINT is required')
   }
 
-  if (
-    !settings.ABSMARTLY_ENVIRONMENT ||
-    settings.ABSMARTLY_ENVIRONMENT.trim() === ''
-  ) {
-    errors.push('ABSMARTLY_ENVIRONMENT is required')
+  if (!settings.ENVIRONMENT || settings.ENVIRONMENT.trim() === '') {
+    errors.push('ENVIRONMENT is required')
   }
 
-  if (
-    !settings.ABSMARTLY_APPLICATION ||
-    settings.ABSMARTLY_APPLICATION.trim() === ''
-  ) {
-    errors.push('ABSMARTLY_APPLICATION is required')
+  if (!settings.APPLICATION || settings.APPLICATION.trim() === '') {
+    errors.push('APPLICATION is required')
   }
 
   const sdkTimeout = validateNumericConfig(
@@ -133,20 +118,6 @@ export function validateSettings(
   ) {
     warnings.push(
       `SDK_TIMEOUT adjusted from ${settings.SDK_TIMEOUT} to ${sdkTimeout}`
-    )
-  }
-
-  const cacheTTL = validateNumericConfig(
-    settings.CONTEXT_CACHE_TTL,
-    NUMERIC_CONSTRAINTS.CONTEXT_CACHE_TTL,
-    logger
-  )
-  if (
-    cacheTTL !== settings.CONTEXT_CACHE_TTL &&
-    settings.CONTEXT_CACHE_TTL !== undefined
-  ) {
-    warnings.push(
-      `CONTEXT_CACHE_TTL adjusted from ${settings.CONTEXT_CACHE_TTL} to ${cacheTTL}`
     )
   }
 
@@ -198,7 +169,7 @@ export function validateSettings(
 }
 
 export function getValidatedNumericConfig(
-  settings: ABSmartlySettings,
+  settings: ABsmartlySettings,
   fieldName: keyof typeof NUMERIC_CONSTRAINTS,
   logger?: Logger
 ): number {
