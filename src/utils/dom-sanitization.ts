@@ -3,21 +3,16 @@
  * Used by both html-parser.ts and html-parser-linkedom.ts
  */
 
-import DOMPurify from 'dompurify'
-import { parseHTML } from 'linkedom'
+import DOMPurify from 'isomorphic-dompurify'
 import { DOMPURIFY_CONFIG } from './dom-sanitization-config'
 import { Logger } from '../types'
-
-// Create a DOMPurify instance using linkedom's window
-const { window } = parseHTML('<!DOCTYPE html>')
-const purify = DOMPurify(window as unknown as Window & typeof globalThis)
 
 /**
  * Sanitize HTML content using DOMPurify with shared configuration
  * Removes dangerous tags, attributes, and protocols
  */
 export function sanitizeHTMLContent(html: string): string {
-  let cleanHTML = purify.sanitize(html, DOMPURIFY_CONFIG)
+  let cleanHTML = DOMPurify.sanitize(html, DOMPURIFY_CONFIG)
 
   // Additional post-processing: remove data:text/html and javascript: URLs
   cleanHTML = cleanHTML.replace(

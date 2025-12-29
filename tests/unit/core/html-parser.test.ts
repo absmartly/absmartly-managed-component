@@ -610,14 +610,9 @@ describe('HTMLParser', () => {
     })
   })
 
-  /**
-   * Note: DOMPurify doesn't work properly with linkedom's window implementation.
-   * These HTML sanitization tests are skipped until a proper server-side sanitization solution is implemented.
-   * Attribute sanitization still works correctly via regex-based sanitization.
-   */
   describe('XSS Security', () => {
     describe('HTML sanitization', () => {
-      it.skip('should sanitize script tags in innerHTML (DOMPurify+linkedom incompatibility)', () => {
+      it('should sanitize script tags in innerHTML', () => {
         const html = '<div>Safe content</div>'
         const parser = new HTMLParser(html)
 
@@ -635,7 +630,7 @@ describe('HTMLParser', () => {
         expect(result).toContain('Hello')
       })
 
-      it.skip('should sanitize event handlers in HTML (DOMPurify+linkedom incompatibility)', () => {
+      it('should sanitize event handlers in HTML', () => {
         const html = '<div>Safe content</div>'
         const parser = new HTMLParser(html)
 
@@ -652,7 +647,7 @@ describe('HTMLParser', () => {
         expect(result).toContain('Click me')
       })
 
-      it.skip('should sanitize javascript: URLs in HTML (DOMPurify+linkedom incompatibility)', () => {
+      it('should sanitize javascript: URLs in HTML', () => {
         const html = '<div>Safe content</div>'
         const parser = new HTMLParser(html)
 
@@ -871,7 +866,7 @@ describe('HTMLParser', () => {
         expect(result).not.toContain('javascript:')
       })
 
-      it.skip('should sanitize nested XSS attempts in HTML (DOMPurify+linkedom incompatibility)', () => {
+      it('should sanitize nested XSS attempts in HTML', () => {
         const html = '<div>Safe</div>'
         const parser = new HTMLParser(html)
 
@@ -887,7 +882,7 @@ describe('HTMLParser', () => {
         expect(result).not.toContain('alert')
       })
 
-      it.skip('should handle encoded script attempts (DOMPurify+linkedom incompatibility)', () => {
+      it('should handle encoded script attempts', () => {
         const html = '<div>Safe</div>'
         const parser = new HTMLParser(html)
 

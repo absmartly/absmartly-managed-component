@@ -17,7 +17,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
   }
 
   describe('HTML sanitization', () => {
-    it.skip('should sanitize script tags in innerHTML (DOMPurify+linkedom incompatibility)', () => {
+    it('should sanitize script tags in innerHTML', () => {
       const html = '<div id="test">Safe content</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 
@@ -37,7 +37,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
       expect(result).toContain('Hello')
     })
 
-    it.skip('should sanitize event handlers in HTML (DOMPurify+linkedom incompatibility)', () => {
+    it('should sanitize event handlers in HTML', () => {
       const html = '<div id="test">Safe content</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 
@@ -56,7 +56,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
       expect(result).toContain('Click me')
     })
 
-    it.skip('should sanitize javascript: URLs in HTML (DOMPurify+linkedom incompatibility)', () => {
+    it('should sanitize javascript: URLs in HTML', () => {
       const html = '<div id="test">Safe content</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 
@@ -96,7 +96,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
       expect(result).toContain('content')
     })
 
-    it.skip('should sanitize SVG-based XSS attacks (DOMPurify+linkedom incompatibility)', () => {
+    it('should sanitize SVG-based XSS attacks', () => {
       const html = '<div id="test">Safe content</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 
@@ -115,7 +115,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
       expect(result).not.toContain('alert')
     })
 
-    it.skip('should sanitize dangerous content in data: URLs (DOMPurify+linkedom incompatibility)', () => {
+    it('should sanitize dangerous content in data: URLs', () => {
       const html = '<div id="test">Safe content</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 
@@ -133,7 +133,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
       expect(result).not.toContain('alert')
     })
 
-    it.skip('should sanitize HTML in createElement (DOMPurify+linkedom incompatibility)', () => {
+    it('should sanitize HTML in createElement', () => {
       const html = '<div id="parent">Parent</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 
@@ -376,7 +376,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
       expect(result).not.toContain('javascript:')
     })
 
-    it.skip('should sanitize nested XSS attempts in HTML (DOMPurify+linkedom incompatibility)', () => {
+    it('should sanitize nested XSS attempts in HTML', () => {
       const html = '<div id="test">Safe</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 
@@ -394,7 +394,7 @@ describe('HTMLParserLinkedom - XSS Security', () => {
       expect(result).not.toContain('alert')
     })
 
-    it.skip('should handle encoded script attempts (DOMPurify+linkedom incompatibility)', () => {
+    it('should handle encoded script attempts', () => {
       const html = '<div id="test">Safe</div>'
       const parser = new HTMLParserLinkedom(html, mockLogger)
 

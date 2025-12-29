@@ -2,13 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { sanitizeHTMLContent, sanitizeAttributeValue } from '../../../src/utils/dom-sanitization'
 
 describe('dom-sanitization', () => {
-  /**
-   * Note: DOMPurify doesn't work properly with linkedom's window implementation.
-   * These tests are skipped until a proper server-side sanitization solution is implemented.
-   * The sanitizeAttributeValue function still works correctly.
-   */
   describe('sanitizeHTMLContent', () => {
-    it.skip('should remove script tags (DOMPurify+linkedom incompatibility)', () => {
+    it('should remove script tags', () => {
       const html = '<div>Hello</div><script>alert("xss")</script><p>World</p>'
       const result = sanitizeHTMLContent(html)
 
@@ -18,7 +13,7 @@ describe('dom-sanitization', () => {
       expect(result).toContain('<p>World</p>')
     })
 
-    it.skip('should remove dangerous event handlers (DOMPurify+linkedom incompatibility)', () => {
+    it('should remove dangerous event handlers', () => {
       const testCases = [
         '<div onclick="alert(1)">Test</div>',
         '<img onerror="alert(1)" src="x">',
@@ -32,7 +27,7 @@ describe('dom-sanitization', () => {
       }
     })
 
-    it.skip('should block javascript: URLs (DOMPurify+linkedom incompatibility)', () => {
+    it('should block javascript: URLs', () => {
       const html = '<a href="javascript:alert(1)">Click</a>'
       const result = sanitizeHTMLContent(html)
 
@@ -67,7 +62,7 @@ describe('dom-sanitization', () => {
       expect(result).toContain('data-value="123"')
     })
 
-    it.skip('should handle empty string (DOMPurify+linkedom incompatibility)', () => {
+    it('should handle empty string', () => {
       const result = sanitizeHTMLContent('')
       expect(result).toBe('')
     })
@@ -77,7 +72,7 @@ describe('dom-sanitization', () => {
       expect(result).toBe('Just plain text')
     })
 
-    it.skip('should remove object and link tags (DOMPurify+linkedom incompatibility)', () => {
+    it('should remove object and link tags', () => {
       const html = '<div>Test</div><object data="evil.swf"></object><link rel="import" href="evil.html">'
       const result = sanitizeHTMLContent(html)
 
