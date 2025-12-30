@@ -6,8 +6,8 @@ import {
   ABsmartlyContextData,
   Logger,
 } from '../types'
-import sdkBundle from '../zaraz/static/sdk-bundle-inline'
-import sdkBundleLite from '../zaraz/static/sdk-bundle-inline-lite'
+import sdkBundle from '../bundles/sdk-bundle-inline'
+import sdkBundleLite from '../bundles/sdk-bundle-inline-lite'
 
 export interface SDKInjectorOptions {
   settings: ABsmartlySettings

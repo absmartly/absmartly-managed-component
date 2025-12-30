@@ -5,7 +5,7 @@
  * Excludes: WebVitals plugin, Zaraz-specific tracking
  */
 
-import { COOKIE_NAMES, COOKIE_DEFAULTS } from '../../constants/cookies'
+import { COOKIE_NAMES, COOKIE_DEFAULTS } from '../constants/cookies'
 
 // Import SDK and specific plugins
 const ABsmartlySDK = require('@absmartly/javascript-sdk')

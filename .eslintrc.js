@@ -35,7 +35,7 @@ module.exports = {
       },
     },
     {
-      files: ['src/zaraz/static/sdk-bundle-inline.ts'],
+      files: ['src/bundles/sdk-bundle-inline*.ts'],
       rules: {
         'prettier/prettier': 'off',
       },

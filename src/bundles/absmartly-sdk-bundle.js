@@ -12,7 +12,7 @@
  */
 
 // Import cookie constants (esbuild will bundle this)
-import { COOKIE_NAMES, COOKIE_DEFAULTS } from '../../constants/cookies'
+import { COOKIE_NAMES, COOKIE_DEFAULTS } from '../constants/cookies'
 
 // Import SDK using CommonJS (required for esbuild IIFE)
 const ABsmartlySDK = require('@absmartly/javascript-sdk')
