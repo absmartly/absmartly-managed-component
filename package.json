@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "ABsmartly Managed Component for Cloudflare Zaraz and WebCM - Flicker-free A/B testing at the edge",
   "main": "dist/index.js",
+  "bin": {
+    "absmartly-mc": "./bin/cli.js"
+  },
   "scripts": {
     "lint": "eslint --ext .ts src",
     "lint:fix": "eslint --ext .ts src --fix",
@@ -39,11 +42,8 @@
   "homepage": "https://github.com/absmartly/absmartly-managed-component#readme",
   "dependencies": {
     "@absmartly/javascript-sdk": "^1.13.2",
-    "@absmartly/managed-component": "file:absmartly-managed-component-0.1.0.tgz",
-    "@absmartly/sdk-plugins": "file:../absmartly-sdk-plugins/absmartly-sdk-plugins-1.1.2.tgz",
-    "dompurify": "^3.2.4",
+    "@absmartly/sdk-plugins": "*",
     "linkedom": "^0.18.12",
-    "wrangler": "^4.54.0",
     "xss": "^1.0.15"
   },
   "devDependencies": {
