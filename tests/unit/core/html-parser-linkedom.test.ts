@@ -90,7 +90,8 @@ describe('HTMLParserLinkedom - XSS Security', () => {
 
       expect(result).toContain('<p')
       expect(result).toContain('class="safe"')
-      expect(result).toContain('style="color: red;"')
+      // xss library normalizes style attributes (may remove space after colon)
+      expect(result).toMatch(/style="color:\s*red;?"/)
       expect(result).toContain('<strong>')
       expect(result).toContain('Safe')
       expect(result).toContain('content')

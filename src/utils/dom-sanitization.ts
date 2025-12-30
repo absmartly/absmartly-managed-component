@@ -1,26 +1,77 @@
 /**
  * Shared HTML sanitization utilities
  * Used by both html-parser.ts and html-parser-linkedom.ts
+ *
+ * Uses js-xss library for Cloudflare Workers compatibility
+ * (DOMPurify requires DOM which doesn't work properly with linkedom in Workers)
  */
 
-import DOMPurify from 'isomorphic-dompurify'
-import { DOMPURIFY_CONFIG } from './dom-sanitization-config'
+import xss, { IFilterXSSOptions, escapeAttrValue } from 'xss'
+import { ALLOWED_TAGS } from './dom-sanitization-config'
 import { Logger } from '../types'
 
+// Base allowed attributes (xss library doesn't support wildcards)
+const BASE_ALLOWED_ATTR = [
+  'class',
+  'id',
+  'style',
+  'title',
+  'role',
+  'href',
+  'target',
+  'rel',
+  'src',
+  'alt',
+  'width',
+  'height',
+  'type',
+  'name',
+  'value',
+  'placeholder',
+  'disabled',
+  'readonly',
+  'checked',
+  'colspan',
+  'rowspan',
+  'controls',
+  'autoplay',
+  'loop',
+  'muted',
+]
+
+const xssOptions: IFilterXSSOptions = {
+  whiteList: ALLOWED_TAGS.reduce(
+    (acc, tag) => {
+      acc[tag] = BASE_ALLOWED_ATTR
+      return acc
+    },
+    {} as Record<string, string[]>
+  ),
+  stripIgnoreTag: true,
+  stripIgnoreTagBody: ['script', 'style'],
+  onIgnoreTagAttr: (_tag, name, value) => {
+    // Allow data-* attributes
+    if (name.startsWith('data-')) {
+      return `${name}="${escapeAttrValue(value)}"`
+    }
+    // Allow aria-* attributes
+    if (name.startsWith('aria-')) {
+      return `${name}="${escapeAttrValue(value)}"`
+    }
+    return undefined
+  },
+}
+
 /**
- * Sanitize HTML content using DOMPurify with shared configuration
- * Removes dangerous tags, attributes, and protocols
+ * Sanitize HTML content by removing dangerous tags, attributes, and protocols
+ * Uses js-xss library for Cloudflare Workers compatibility
  */
 export function sanitizeHTMLContent(html: string): string {
-  let cleanHTML = DOMPurify.sanitize(html, DOMPURIFY_CONFIG)
+  if (!html || html.trim() === '') {
+    return ''
+  }
 
-  // Additional post-processing: remove data:text/html and javascript: URLs
-  cleanHTML = cleanHTML.replace(
-    /\s(href|src)=(["'])data:(?:text\/html|application\/javascript)[^'"]*\2/gi,
-    ''
-  )
-
-  return cleanHTML
+  return xss(html, xssOptions)
 }
 
 /**
