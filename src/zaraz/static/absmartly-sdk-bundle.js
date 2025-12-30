@@ -14,15 +14,21 @@
 // Import cookie constants (esbuild will bundle this)
 import { COOKIE_NAMES, COOKIE_DEFAULTS } from '../../constants/cookies'
 
-// Import and expose the SDK and plugins globally using CommonJS
-// This works better with esbuild's IIFE format
+// Import SDK using CommonJS (required for esbuild IIFE)
 const ABsmartlySDK = require('@absmartly/javascript-sdk')
-const SDKPlugins = require('@absmartly/sdk-plugins')
+
+// Import plugins using ES modules for proper tree-shaking and exports
+import {
+  DOMChangesPluginLite,
+  CookiePlugin,
+  WebVitalsPlugin,
+  getOverrides
+} from '@absmartly/sdk-plugins/es/index.js'
 
 window.ABsmartly = ABsmartlySDK
 
 // Bundle version for tracking updates
-const BUNDLE_VERSION = '1.0.5-direct-plugin-access'
+const BUNDLE_VERSION = '1.1.0-es-imports'
 console.log(`[ABsmartly Zaraz] 📦 SDK Bundle Version: ${BUNDLE_VERSION}`)
 window.ABsmartlyBundleVersion = BUNDLE_VERSION
 
@@ -69,7 +75,7 @@ window.ABsmartlyInit = function(config, unitId, unitType, serverData, overrides,
     // Get client-side overrides from query params and cookies
     var searchParams = new URLSearchParams(location.search)
     var queryPrefix = config.queryPrefix || '_'
-    var clientOverrides = SDKPlugins.getOverrides('absmartly_overrides', queryPrefix, searchParams)
+    var clientOverrides = getOverrides('absmartly_overrides', queryPrefix, searchParams)
     debugLog('Client-side overrides:', clientOverrides)
 
     // Merge server-side and client-side overrides (client-side takes precedence)
@@ -87,7 +93,7 @@ window.ABsmartlyInit = function(config, unitId, unitType, serverData, overrides,
     var cookiePluginInstance = null
     if (plugins.cookie !== false) {
       try {
-        cookiePluginInstance = new SDKPlugins.CookiePlugin({
+        cookiePluginInstance = new CookiePlugin({
           debug: config.enableDebug || false,
           cookieDomain: config.cookieDomain || window.location.hostname,
           cookiePath: '/',
@@ -227,7 +233,7 @@ window.ABsmartlyInit = function(config, unitId, unitType, serverData, overrides,
 
     if (plugins.domChanges !== false) {
       try {
-        pluginInstances.domChanges = new SDKPlugins.DOMChangesPluginLite({
+        pluginInstances.domChanges = new DOMChangesPluginLite({
           context: context,
           autoApply: true,
           spa: true,
@@ -245,7 +251,7 @@ window.ABsmartlyInit = function(config, unitId, unitType, serverData, overrides,
     if (plugins.webVitals !== false) {
       try {
         debugLog('Lazy loading WebVitals plugin')
-        pluginInstances.webVitals = new SDKPlugins.WebVitalsPlugin({
+        pluginInstances.webVitals = new WebVitalsPlugin({
           context: context,
           trackWebVitals: true,
           trackPageMetrics: true,
