@@ -1,5 +1,6 @@
 export {
   processHTML,
+  getOverrides,
   ProcessHTMLOptions,
   ProcessHTMLResult,
   WorkerClient,

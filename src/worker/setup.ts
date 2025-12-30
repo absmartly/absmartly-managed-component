@@ -2,15 +2,13 @@ import { Client } from '@managed-components/types'
 import {
   ABsmartlySettings,
   ExperimentData,
-  Logger,
   OverridesMap,
 } from '../types'
 import { ContextManager } from '../core/context-manager'
 import { CookieHandler } from '../core/cookie-handler'
 import { HTMLProcessor } from '../core/html-processor'
 import { createLogger } from '../utils/logger'
-import { safeParseJSON } from '../utils/serializer'
-import { COOKIE_NAMES } from '../constants/cookies'
+import { getOverrides } from '@absmartly/sdk-plugins/es/index.js'
 import {
   WorkerClient,
   CookieToSet,
@@ -21,6 +19,7 @@ export interface ProcessHTMLOptions {
   request: Request
   html: string
   settings: ABsmartlySettings
+  overrides?: OverridesMap
 }
 
 export interface ProcessHTMLResult {
@@ -29,34 +28,8 @@ export interface ProcessHTMLResult {
   userId: string
   cookiesToSet: CookieToSet[]
   setCookieHeaders: string[]
-}
-
-function getOverridesFromClient(client: Client, logger: Logger): OverridesMap {
-  const overrides: OverridesMap = {}
-
-  try {
-    for (const [key, value] of client.url.searchParams) {
-      if (key.startsWith('absmartly_')) {
-        const experimentName = key.replace('absmartly_', '')
-        overrides[experimentName] = parseInt(value, 10)
-      }
-    }
-  } catch (error) {
-    logger.error('Failed to parse URL overrides', error)
-  }
-
-  try {
-    const cookieValue = client.get(COOKIE_NAMES.OVERRIDES)
-    if (cookieValue) {
-      const cookieOverrides =
-        safeParseJSON<OverridesMap>(cookieValue, {}, logger) || {}
-      Object.assign(overrides, cookieOverrides)
-    }
-  } catch (error) {
-    logger.error('Failed to parse cookie overrides', error)
-  }
-
-  return overrides
+  contextData: unknown
+  overrides: OverridesMap
 }
 
 export async function processHTML(
@@ -74,7 +47,13 @@ export async function processHTML(
   cookieHandler.storeUTMParams(client)
   cookieHandler.storeLandingPage(client)
 
-  const overrides = getOverridesFromClient(client, logger)
+  // Use provided overrides or extract from request using sdk-plugins getOverrides
+  const overrides = options.overrides ?? getOverrides(
+    'absmartly_overrides',
+    '_',
+    client.url.searchParams,
+    request.headers.get('Cookie') || undefined
+  )
 
   const attributes: Record<string, string | undefined> = {
     userAgent: client.userAgent,
@@ -144,8 +123,13 @@ export async function processHTML(
     userId,
     cookiesToSet,
     setCookieHeaders,
+    contextData: context.data(),
+    overrides,
   }
 }
+
+// Re-export getOverrides from sdk-plugins for use by workers
+export { getOverrides } from '@absmartly/sdk-plugins/es/index.js'
 
 export {
   WorkerClient,
