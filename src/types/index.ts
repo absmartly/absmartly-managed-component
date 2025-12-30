@@ -65,7 +65,8 @@ export interface ABsmartlySettings extends MCComponentSettings {
   PASS_SERVER_PAYLOAD?: boolean
   PROXY_SDK_REQUESTS?: boolean // Route SDK requests through Worker proxy (keeps API key secure)
   PROXY_ROUTE_PATH?: string // Internal: Actual proxy route path (set at runtime by Zaraz)
-  CLIENT_SDK_STRATEGY?: 'cdn' | 'custom' | 'zaraz-bundle' | 'bundled'
+  CLIENT_SDK_STRATEGY?: 'cdn' | 'custom' | 'zaraz-bundle' | 'bundled' | 'local' | 'external' | 'inline'
+  CLIENT_SDK_LOAD_STRATEGY?: 'async' | 'defer' // Default: 'async'
   CLIENT_SDK_URL?: string
   CLIENT_SDK_CDN_PROVIDER?: 'unpkg' | 'jsdelivr'
   CLIENT_SDK_VERSION?: string

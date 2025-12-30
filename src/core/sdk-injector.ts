@@ -7,6 +7,7 @@ import {
   Logger,
 } from '../types'
 import sdkBundle from '../zaraz/static/sdk-bundle-inline'
+import sdkBundleLite from '../zaraz/static/sdk-bundle-inline-lite'
 
 export interface SDKInjectorOptions {
   settings: ABsmartlySettings
@@ -23,6 +24,7 @@ export interface SDKInjectionPayload {
 
 export interface ClientSDKConfig {
   endpoint: string
+  apiKey: string
   environment: string
   application: string
   retries?: number
@@ -77,10 +79,17 @@ export class SDKInjector {
       reason: 'deploymentMode !== "zaraz"',
     })
 
-    // For WebCM mode, use bundled or external based on strategy
+    // For WebCM mode, use bundled, inline, or external based on strategy
     if (settings.CLIENT_SDK_STRATEGY === 'bundled') {
       this.options.logger.log('Using bundled SDK strategy (WebCM mode - HTML)')
       return this.generateBundledScript(config, payload)
+    }
+
+    // Inline strategy: embed SDK directly in HTML to eliminate network request
+    // This gives ~200ms faster load times compared to external file
+    if (settings.CLIENT_SDK_STRATEGY === 'inline') {
+      this.options.logger.log('Using inline SDK strategy (WebCM mode - HTML, no network)')
+      return this.generateInlineScript(config, payload)
     }
 
     this.options.logger.log('Using external SDK strategy (WebCM mode - HTML)', {
@@ -94,6 +103,7 @@ export class SDKInjector {
 
     return {
       endpoint: settings.ENDPOINT,
+      apiKey: settings.SDK_API_KEY,
       environment: settings.ENVIRONMENT,
       application: settings.APPLICATION,
       retries: 1,
@@ -129,6 +139,14 @@ export class SDKInjector {
       return '/_zaraz/absmartly-sdk.js'
     }
 
+    // Local strategy: load SDK bundle from the worker's public directory
+    // Add version parameter to bust CDN/browser cache
+    if (settings.CLIENT_SDK_STRATEGY === 'local') {
+      const baseUrl = settings.CLIENT_SDK_URL || '/absmartly-sdk.min.js'
+      const version = settings.CLIENT_SDK_VERSION || '1.1.0'
+      return `${baseUrl}?v=${version}`
+    }
+
     const provider = settings.CLIENT_SDK_CDN_PROVIDER || 'unpkg'
     const version = settings.CLIENT_SDK_VERSION || 'latest'
 
@@ -151,6 +169,9 @@ export class SDKInjector {
     const overrides = JSON.stringify(payload.overrides || {})
     const unitId = JSON.stringify(payload.unitId)
     const unitType = JSON.stringify(payload.unitType)
+
+    // Script loading strategy: async (default) or defer
+    const loadStrategy = this.options.settings.CLIENT_SDK_LOAD_STRATEGY || 'async'
 
     // For Zaraz mode: Inline the entire SDK bundle + init code
     // client.execute() expects pure JS, not HTML
@@ -238,7 +259,8 @@ window.ABsmartlyInit(${configStr}, ${unitId}, ${unitType}, ${serverData}, ${over
     // For WebCM mode: Return HTML script tags
     if (this.options.settings.CLIENT_SDK_STRATEGY === 'zaraz-bundle') {
       return `
-<script src="${sdkUrl}" async></script>
+<link rel="preload" href="${sdkUrl}" as="script">
+<script src="${sdkUrl}" ${loadStrategy}></script>
 <script>
 (function(config, unitId, serverData, overrides) {
   function init() {
@@ -270,56 +292,88 @@ window.ABsmartlyInit(${configStr}, ${unitId}, ${unitType}, ${serverData}, ${over
       )
     }
 
+    // Use ABsmartlyInit from the bundle if available (has all plugins)
+    // Fall back to inline SDK init if ABsmartlyInit is not present
     return `
-<script src="${sdkUrl}" async></script>
+<link rel="preload" href="${sdkUrl}" as="script">
 <script>
-(function(config, unitId, serverData, overrides) {
-  function init() {
-    if (typeof ABsmartly !== 'undefined' && ABsmartly.SDK) {
-      try {
-        var sdk = new ABsmartly.SDK(config);
-        var context;
-
-        if (serverData) {
-          context = sdk.createContextWith({
-            units: { user_id: unitId }
-          }, serverData);
-        } else {
-          context = sdk.createContext({
-            units: { user_id: unitId }
-          });
-        }
-
-        if (Object.keys(overrides).length > 0) {
-          for (var exp in overrides) {
-            context.override(exp, overrides[exp]);
-          }
-        }
-
-        window.ABsmartlyContext = context;
-
-        if (serverData) {
-          console.log('[ABsmartly] SDK initialized with server payload (no CDN fetch)');
-        } else {
-          context.ready().then(function() {
-            console.log('[ABsmartly] SDK initialized and ready');
-          });
-        }
-      } catch (error) {
-        console.error('[ABsmartly] Failed to initialize SDK:', error);
-      }
-    } else {
-      setTimeout(init, 50);
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})(${JSON.stringify(config)}, ${unitId}, ${serverData}, ${overrides});
+window.__absmartlyConfig = ${JSON.stringify(config)};
+window.__absmartlyUnitId = ${unitId};
+window.__absmartlyUnitType = ${unitType};
+window.__absmartlyServerData = ${serverData};
+window.__absmartlyOverrides = ${overrides};
+window.__absmartlyPerfStart = performance.now();
 </script>
+<script src="${sdkUrl}" ${loadStrategy} onload="
+(function() {
+  var perfStart = window.__absmartlyPerfStart;
+  var perf = function(name) {
+    var elapsed = (performance.now() - perfStart).toFixed(2);
+    console.log('[ABsmartly Worker +' + elapsed + 'ms] ⏱️  ' + name);
+  };
+
+  perf('SDK loaded');
+
+  var config = window.__absmartlyConfig;
+  var unitId = window.__absmartlyUnitId;
+  var unitType = window.__absmartlyUnitType;
+  var serverData = window.__absmartlyServerData;
+  var overrides = window.__absmartlyOverrides;
+
+  // If bundle has ABsmartlyInit (includes DOMChangesPlugin), use it
+  if (typeof window.ABsmartlyInit === 'function') {
+    perf('using ABsmartlyInit from bundle');
+    try {
+      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
+        domChanges: true,
+        cookie: false,
+        webVitals: false
+      });
+    } catch (error) {
+      console.error('[ABsmartly Worker] ❌ ABsmartlyInit failed:', error);
+    }
+    return;
+  }
+
+  // Fallback: manual SDK init (no plugins)
+  perf('fallback: manual SDK init');
+  try {
+    var sdk = new ABsmartly.SDK(config);
+    perf('SDK configured');
+    var context;
+    var units = {};
+    units[unitType || 'user_id'] = unitId;
+
+    if (serverData) {
+      context = sdk.createContextWith({ units: units }, serverData);
+      perf('context created (server payload)');
+    } else {
+      context = sdk.createContext({ units: units });
+      perf('context created (will fetch)');
+    }
+
+    if (overrides && Object.keys(overrides).length > 0) {
+      for (var exp in overrides) {
+        context.override(exp, overrides[exp]);
+      }
+      perf('overrides applied');
+    }
+
+    window.ABsmartlyContext = context;
+    perf('context exposed on window');
+
+    if (serverData) {
+      perf('✅ ready (no API fetch needed)');
+    } else {
+      context.ready().then(function() {
+        perf('✅ ready (API fetch complete)');
+      });
+    }
+  } catch (error) {
+    console.error('[ABsmartly Worker] ❌ Failed to initialize SDK:', error);
+  }
+})();
+"></script>
     `.trim()
   }
 
@@ -334,6 +388,9 @@ window.ABsmartlyInit(${configStr}, ${unitId}, ${unitType}, ${serverData}, ${over
     const overrides = JSON.stringify(payload.overrides || {})
     const unitId = JSON.stringify(payload.unitId)
 
+    // Script loading strategy: async (default) or defer
+    const loadStrategy = this.options.settings.CLIENT_SDK_LOAD_STRATEGY || 'async'
+
     if (!this.options.settings.PASS_SERVER_PAYLOAD) {
       this.options.logger.warn(
         'Client SDK initialized without server payload. API calls will be made from the browser. ' +
@@ -342,7 +399,7 @@ window.ABsmartlyInit(${configStr}, ${unitId}, ${unitType}, ${serverData}, ${over
     }
 
     return `
-<script src="/_zaraz/absmartly-sdk.js" async></script>
+<script src="/_zaraz/absmartly-sdk.js" ${loadStrategy}></script>
 <script>
 (function(config, unitId, serverData, overrides) {
   function init() {
@@ -363,6 +420,67 @@ window.ABsmartlyInit(${configStr}, ${unitId}, ${unitType}, ${serverData}, ${over
     init();
   }
 })(${JSON.stringify(config)}, ${unitId}, ${serverData}, ${overrides});
+</script>
+    `.trim()
+  }
+
+  private generateInlineScript(
+    config: ClientSDKConfig,
+    payload: SDKInjectionPayload
+  ): string {
+    const serverData = this.options.settings.PASS_SERVER_PAYLOAD
+      ? JSON.stringify(payload.contextData)
+      : 'null'
+
+    const overrides = JSON.stringify(payload.overrides || {})
+    const unitId = JSON.stringify(payload.unitId)
+    const unitType = JSON.stringify(payload.unitType)
+
+    if (!this.options.settings.PASS_SERVER_PAYLOAD) {
+      this.options.logger.warn(
+        'Client SDK initialized without server payload. API calls will be made from the browser. ' +
+          'For better security, enable PASS_SERVER_PAYLOAD to avoid exposing API endpoints to clients.'
+      )
+    }
+
+    // Inline the entire SDK bundle (lite) + init code in a single script tag
+    // This eliminates network latency (~200ms savings)
+    // Uses lite bundle (no WebVitals) for smaller size and faster parsing
+    return `
+<script>
+window.__absmartlyPerfStart = performance.now();
+${sdkBundleLite}
+
+(function() {
+  var perfStart = window.__absmartlyPerfStart;
+  var perf = function(name) {
+    var elapsed = (performance.now() - perfStart).toFixed(2);
+    console.log('[ABsmartly Worker +' + elapsed + 'ms] ⏱️  ' + name);
+  };
+
+  perf('SDK inline bundle parsed');
+
+  var config = ${JSON.stringify(config)};
+  var unitId = ${unitId};
+  var unitType = ${unitType};
+  var serverData = ${serverData};
+  var overrides = ${overrides};
+
+  if (typeof window.ABsmartlyInit === 'function') {
+    perf('using ABsmartlyInit from inline bundle');
+    try {
+      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
+        domChanges: true,
+        cookie: false,
+        webVitals: false
+      });
+    } catch (error) {
+      console.error('[ABsmartly Worker] ❌ ABsmartlyInit failed:', error);
+    }
+  } else {
+    console.error('[ABsmartly Worker] ❌ ABsmartlyInit not found in inline bundle');
+  }
+})();
 </script>
     `.trim()
   }
