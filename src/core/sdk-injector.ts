@@ -443,13 +443,17 @@ window.__absmartlyPerfStart = performance.now();
       )
     }
 
-    // Inline the entire SDK bundle (lite) + init code in a single script tag
+    // Inline the entire SDK bundle + init code in a single script tag
     // This eliminates network latency (~200ms savings)
-    // Uses lite bundle (no WebVitals) for smaller size and faster parsing
+    // Use full bundle (with WebVitals) or lite bundle based on ENABLE_WEB_VITALS_PLUGIN setting
+    const useWebVitals = this.options.settings.ENABLE_WEB_VITALS_PLUGIN !== false
+    const inlineBundle = useWebVitals ? sdkBundle : sdkBundleLite
+    const bundleType = useWebVitals ? 'full' : 'lite'
+
     return `
 <script>
 window.__absmartlyPerfStart = performance.now();
-${sdkBundleLite}
+${inlineBundle}
 
 (function() {
   var perfStart = window.__absmartlyPerfStart;
@@ -458,7 +462,7 @@ ${sdkBundleLite}
     console.log('[ABsmartly Worker +' + elapsed + 'ms] ⏱️  ' + name);
   };
 
-  perf('SDK inline bundle parsed');
+  perf('SDK inline bundle parsed (${bundleType})');
 
   var config = ${JSON.stringify(config)};
   var unitId = ${unitId};
@@ -472,7 +476,7 @@ ${sdkBundleLite}
       window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
         domChanges: true,
         cookie: false,
-        webVitals: false
+        webVitals: ${useWebVitals}
       });
     } catch (error) {
       console.error('[ABsmartly Worker] ❌ ABsmartlyInit failed:', error);
