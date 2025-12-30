@@ -8,6 +8,7 @@ import { parseAndMergeConfig } from './utils/config-parser'
 // Export worker integration module for use in existing Cloudflare Workers
 export {
   processHTML,
+  getOverrides,
   ProcessHTMLOptions,
   ProcessHTMLResult,
   WorkerClient,
@@ -20,6 +21,7 @@ export { HTMLParserLinkedom } from './core/html-parser-linkedom'
 export { HTMLProcessor } from './core/html-processor'
 export { ContextManager } from './core/context-manager'
 export { CookieHandler } from './core/cookie-handler'
+export { SDKInjector } from './core/sdk-injector'
 export { createLogger, type LoggerMode } from './utils/logger'
 export type {
   ABsmartlySettings,
@@ -114,11 +116,12 @@ export default async function (manager: Manager, settings: ABsmartlySettings) {
         hasApplication: !!settings.APPLICATION,
         hasZarazConfig: !!settings.ZARAZ_CONFIG,
         allKeys: Object.keys(settings),
-        // DEBUG: Show actual values
+        // DEBUG: Show actual values (including empty)
         ENDPOINT_VALUE: settings.ENDPOINT,
+        SDK_API_KEY_RAW: settings.SDK_API_KEY || '[EMPTY]',
         SDK_API_KEY_VALUE: settings.SDK_API_KEY
           ? settings.SDK_API_KEY.substring(0, 20) + '...'
-          : undefined,
+          : '[NOT SET]',
         ZARAZ_CONFIG_VALUE: settings.ZARAZ_CONFIG,
       })
 

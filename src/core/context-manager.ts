@@ -206,7 +206,8 @@ export class ContextManager {
     }
 
     const parsedConfig = this.parseVariantConfig(variant.config)
-    const changes = parsedConfig.domChanges || []
+    // Support both __dom_changes.changes (ABsmartly format) and domChanges (legacy)
+    const changes = parsedConfig.__dom_changes?.changes || parsedConfig.domChanges || []
 
     const needsImmediateTracking = this.shouldTrackImmediately(
       experiment,
@@ -280,13 +281,13 @@ export class ContextManager {
    * @param config - The variant config (string or object)
    * @returns The parsed config object or an empty object if parsing fails
    */
-  private parseVariantConfig(config: unknown): { domChanges?: DOMChange[] } {
+  private parseVariantConfig(config: unknown): { domChanges?: DOMChange[]; __dom_changes?: { changes: DOMChange[] } } {
     if (!config) {
       return {}
     }
 
     if (typeof config === 'object' && config !== null) {
-      return config as { domChanges?: DOMChange[] }
+      return config as { domChanges?: DOMChange[]; __dom_changes?: { changes: DOMChange[] } }
     }
 
     if (typeof config === 'string') {
