@@ -7,6 +7,10 @@ import {
 import { ContextManager } from '../core/context-manager'
 import { CookieHandler } from '../core/cookie-handler'
 import { HTMLProcessor } from '../core/html-processor'
+import {
+  URLRedirectHandler,
+  RedirectMatch,
+} from '../core/url-redirect-handler'
 import { createLogger } from '../utils/logger'
 import { getOverrides } from '@absmartly/sdk-plugins/es/index.js'
 import {
@@ -20,6 +24,7 @@ export interface ProcessHTMLOptions {
   html: string
   settings: ABsmartlySettings
   overrides?: OverridesMap
+  checkRedirects?: boolean
 }
 
 export interface ProcessHTMLResult {
@@ -30,6 +35,7 @@ export interface ProcessHTMLResult {
   setCookieHeaders: string[]
   contextData: unknown
   overrides: OverridesMap
+  redirect?: RedirectMatch | null
 }
 
 export async function processHTML(
@@ -71,6 +77,29 @@ export async function processHTML(
     attributes
   )
 
+  // Check for URL redirects before processing HTML
+  let redirect: RedirectMatch | null = null
+  if (options.checkRedirects !== false) {
+    const urlRedirectHandler = new URLRedirectHandler({
+      settings,
+      logger,
+    })
+
+    redirect = urlRedirectHandler.findRedirectMatch(request.url, context)
+
+    if (redirect) {
+      logger.log('URL redirect match found', {
+        experimentName: redirect.experimentName,
+        variant: redirect.variant,
+        targetUrl: redirect.targetUrl,
+        isControl: redirect.isControl,
+      })
+
+      // Track the exposure for the redirect experiment
+      context.treatment(redirect.experimentName)
+    }
+  }
+
   const experimentData = contextManager.extractExperimentData(context)
 
   logger.log('Experiments extracted', {
@@ -84,7 +113,8 @@ export async function processHTML(
 
   let processedHTML = html
 
-  if (experimentData.length > 0) {
+  // Skip HTML processing if we're going to redirect
+  if (!redirect && experimentData.length > 0) {
     const allChanges = experimentData.flatMap(exp => exp.changes || [])
 
     if (allChanges.length > 0) {
@@ -115,6 +145,7 @@ export async function processHTML(
     userId,
     experimentsCount: experimentData.length,
     cookiesSet: cookiesToSet.length,
+    hasRedirect: !!redirect,
   })
 
   return {
@@ -125,6 +156,7 @@ export async function processHTML(
     setCookieHeaders,
     contextData: context.data(),
     overrides,
+    redirect,
   }
 }
 

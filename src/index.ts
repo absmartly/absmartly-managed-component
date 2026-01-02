@@ -16,6 +16,14 @@ export {
   buildSetCookieHeaders,
 } from './worker'
 
+// Export URL redirect handler for server-side redirect support
+export {
+  URLRedirectHandler,
+  URLRedirect,
+  URLRedirectConfig,
+  RedirectMatch,
+} from './core/url-redirect-handler'
+
 // Export core utilities for advanced use cases
 export { HTMLParserLinkedom } from './core/html-parser-linkedom'
 export { HTMLProcessor } from './core/html-processor'
