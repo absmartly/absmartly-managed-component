@@ -32,7 +32,7 @@ function createMockSettings(): ABsmartlySettings {
 
 describe('URLRedirectHandler', () => {
   const settings = createMockSettings()
-  const logger = createLogger(false, 'test')
+  const logger = createLogger(false, 'worker')
 
   describe('findRedirectMatch', () => {
     it('should find domain redirect match', () => {

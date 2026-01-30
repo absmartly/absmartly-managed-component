@@ -3,17 +3,15 @@ import { Manager, MCEvent, Client } from '@managed-components/types'
 import { setupZarazMode } from '../../../src/zaraz/setup'
 import { ABsmartlySettings } from '../../../src/types'
 import { ContextManager } from '../../../src/core/context-manager'
-import { createTestSDK, createTestContext } from '../../helpers/sdk-helper'
+import { createTestSDK, createTestContext, type EventLogger } from '../../helpers/sdk-helper'
 import { basicExperimentData } from '../../fixtures/absmartly-context-data'
 
 type EventName = 'error' | 'ready' | 'refresh' | 'publish' | 'exposure' | 'goal' | 'finalize'
-type EventLoggerData = Record<string, unknown>
-type EventLogger = (context: unknown, eventName: EventName, data?: EventLoggerData) => void
 
 // Captured events for verification
 interface CapturedEvent {
   eventName: EventName
-  data?: EventLoggerData
+  data?: unknown
 }
 
 let capturedEvents: CapturedEvent[]

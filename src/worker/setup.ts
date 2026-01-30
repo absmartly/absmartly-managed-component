@@ -1,18 +1,10 @@
-import { Client } from '@managed-components/types'
-import {
-  ABsmartlySettings,
-  ExperimentData,
-  OverridesMap,
-} from '../types'
+import { ABsmartlySettings, ExperimentData, OverridesMap } from '../types'
 import { ContextManager } from '../core/context-manager'
 import { CookieHandler } from '../core/cookie-handler'
 import { HTMLProcessor } from '../core/html-processor'
-import {
-  URLRedirectHandler,
-  RedirectMatch,
-} from '../core/url-redirect-handler'
+import { URLRedirectHandler, RedirectMatch } from '../core/url-redirect-handler'
 import { createLogger } from '../utils/logger'
-import { getOverrides } from '@absmartly/sdk-plugins/es/index.js'
+import { getOverrides } from '@absmartly/sdk-plugins/overrides'
 import {
   WorkerClient,
   CookieToSet,
@@ -54,12 +46,14 @@ export async function processHTML(
   cookieHandler.storeLandingPage(client)
 
   // Use provided overrides or extract from request using sdk-plugins getOverrides
-  const overrides = options.overrides ?? getOverrides(
-    'absmartly_overrides',
-    '_',
-    client.url.searchParams,
-    request.headers.get('Cookie') || undefined
-  )
+  const overrides =
+    options.overrides ??
+    getOverrides(
+      'absmartly_overrides',
+      '_',
+      client.url.searchParams,
+      request.headers.get('Cookie') || undefined
+    )
 
   const attributes: Record<string, string | undefined> = {
     userAgent: client.userAgent,
@@ -161,7 +155,7 @@ export async function processHTML(
 }
 
 // Re-export getOverrides from sdk-plugins for use by workers
-export { getOverrides } from '@absmartly/sdk-plugins/es/index.js'
+export { getOverrides } from '@absmartly/sdk-plugins/overrides'
 
 export {
   WorkerClient,
