@@ -1,6 +1,6 @@
 {
   "name": "@absmartly/managed-component",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ABsmartly Managed Component for Cloudflare Zaraz and WebCM - Flicker-free A/B testing at the edge",
   "main": "dist/index.js",
   "bin": {
