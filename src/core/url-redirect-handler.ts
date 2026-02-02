@@ -83,7 +83,12 @@ export class URLRedirectHandler {
               `[URLRedirectHandler] Control variant with redirect-same behavior for ${experiment.name}`
             )
             return {
-              redirect: { from: url, to: url, type: 'page', preservePath: true },
+              redirect: {
+                from: url,
+                to: url,
+                type: 'page',
+                preservePath: true,
+              },
               targetUrl: url,
               experimentName: experiment.name,
               variant: 0,
@@ -94,14 +99,22 @@ export class URLRedirectHandler {
         continue
       }
 
-      if (config.urlFilter && !this.matchesUrlFilter(config.urlFilter, parsedUrl)) {
+      if (
+        config.urlFilter &&
+        !this.matchesUrlFilter(config.urlFilter, parsedUrl)
+      ) {
         this.logger.debug(
           `[URLRedirectHandler] URL doesn't match filter for ${experiment.name}`
         )
         continue
       }
 
-      const match = this.findMatch(parsedUrl, config.redirects, experiment.name, currentVariant)
+      const match = this.findMatch(
+        parsedUrl,
+        config.redirects,
+        experiment.name,
+        currentVariant
+      )
 
       if (match) {
         this.logger.debug('[URLRedirectHandler] Found redirect match:', {

@@ -145,6 +145,13 @@ dist
 
 .vscode
 
+# Claude Code
+.claude/
+
+# Wrangler temp files
+.wrangler/
+worker/.wrangler/
+
 # Worker wrapper auto-generated files
 worker/src/component.js
 

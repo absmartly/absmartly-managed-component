@@ -15,7 +15,7 @@ import { getOverrides } from '@absmartly/sdk-plugins/overrides'
 // Expose SDK on window
 ;(window as any).ABsmartly = ABsmartlySDK
 
-const BUNDLE_VERSION = '2.1.0-worker-full'
+const BUNDLE_VERSION = '2.1.2-worker-full'
 const LOG_PREFIX = 'ABsmartly Worker'
 
 console.log(`[${LOG_PREFIX}] SDK Bundle Version: ${BUNDLE_VERSION}`)

@@ -6,8 +6,10 @@ import {
   ABsmartlyContextData,
   Logger,
 } from '../types'
-import sdkBundle from '../bundles/sdk-bundle-inline'
-import sdkBundleLite from '../bundles/sdk-bundle-inline-lite'
+import sdkBundleZarazFull from '../bundles/sdk-bundle-inline-zaraz-full'
+import sdkBundleZarazLite from '../bundles/sdk-bundle-inline-zaraz-lite'
+import sdkBundleWorkerFull from '../bundles/sdk-bundle-inline-worker-full'
+import sdkBundleWorkerLite from '../bundles/sdk-bundle-inline-worker-lite'
 
 export interface SDKInjectorOptions {
   settings: ABsmartlySettings
@@ -88,7 +90,9 @@ export class SDKInjector {
     // Inline strategy: embed SDK directly in HTML to eliminate network request
     // This gives ~200ms faster load times compared to external file
     if (settings.CLIENT_SDK_STRATEGY === 'inline') {
-      this.options.logger.log('Using inline SDK strategy (WebCM mode - HTML, no network)')
+      this.options.logger.log(
+        'Using inline SDK strategy (WebCM mode - HTML, no network)'
+      )
       return this.generateInlineScript(config, payload)
     }
 
@@ -171,7 +175,8 @@ export class SDKInjector {
     const unitType = JSON.stringify(payload.unitType)
 
     // Script loading strategy: async (default) or defer
-    const loadStrategy = this.options.settings.CLIENT_SDK_LOAD_STRATEGY || 'async'
+    const loadStrategy =
+      this.options.settings.CLIENT_SDK_LOAD_STRATEGY || 'async'
 
     // For Zaraz mode: Inline the entire SDK bundle + init code
     // client.execute() expects pure JS, not HTML
@@ -184,9 +189,11 @@ export class SDKInjector {
 
     if (isZarazMode) {
       this.options.logger.log('Returning pure JS (Zaraz mode path)')
-      // Inline the bundled SDK + call ABsmartlyInit
-      // Build config object manually - use raw values to preserve Zaraz template variables
-      // Don't JSON.stringify config values as they may contain {{ variable.xxx }} placeholders
+
+      // Use Zaraz-specific bundle (with zaraz.track integration)
+      const useWebVitals =
+        this.options.settings.ENABLE_WEB_VITALS_PLUGIN !== false
+      const zarazBundle = useWebVitals ? sdkBundleZarazFull : sdkBundleZarazLite
 
       // Always use real ABsmartly endpoint for Zaraz mode
       // Events are forwarded via zaraz.track(), not a proxy
@@ -247,13 +254,27 @@ export class SDKInjector {
         unitId,
         unitType,
         serverData: serverData === 'null' ? null : '<context data>',
+        bundleType: useWebVitals ? 'zaraz-full' : 'zaraz-lite',
       })
 
-      return `
-${sdkBundle}
-
-window.ABsmartlyInit(${configStr}, ${unitId}, ${unitType}, ${serverData}, ${overrides}, ${pluginConfigStr});
-      `.trim()
+      // Use string concatenation to avoid evaluating template literals in the bundle
+      return (
+        zarazBundle +
+        '\n\n' +
+        'window.ABsmartlyInit(' +
+        configStr +
+        ', ' +
+        unitId +
+        ', ' +
+        unitType +
+        ', ' +
+        serverData +
+        ', ' +
+        overrides +
+        ', ' +
+        pluginConfigStr +
+        ');'
+      )
     }
 
     // For WebCM mode: Return HTML script tags
@@ -292,9 +313,14 @@ window.ABsmartlyInit(${configStr}, ${unitId}, ${unitType}, ${serverData}, ${over
       )
     }
 
-    // Use ABsmartlyInit from the bundle if available (has all plugins)
-    // Fall back to inline SDK init if ABsmartlyInit is not present
-    return `
+    // Check if we should use inline onload (faster) or polling (more compatible)
+    const loadMethod = this.options.settings.CLIENT_SDK_LOAD_METHOD || 'polling'
+    const useWebVitals =
+      this.options.settings.ENABLE_WEB_VITALS_PLUGIN !== false
+
+    // Inline onload approach: Faster (~1ms) but requires CSP to allow inline handlers
+    if (loadMethod === 'onload') {
+      return `
 <link rel="preload" href="${sdkUrl}" as="script">
 <script>
 window.__absmartlyConfig = ${JSON.stringify(config)};
@@ -320,60 +346,79 @@ window.__absmartlyPerfStart = performance.now();
   var serverData = window.__absmartlyServerData;
   var overrides = window.__absmartlyOverrides;
 
-  // If bundle has ABsmartlyInit (includes DOMChangesPlugin), use it
   if (typeof window.ABsmartlyInit === 'function') {
     perf('using ABsmartlyInit from bundle');
     try {
       window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
-        domChanges: true,
-        cookie: false,
-        webVitals: false
+        domChanges: ${this.options.settings.ENABLE_DOM_CHANGES_PLUGIN !== false},
+        cookie: ${this.options.settings.ENABLE_COOKIE_PLUGIN !== false},
+        webVitals: ${useWebVitals}
       });
+      var elapsed = (performance.now() - perfStart).toFixed(2);
+      if (elapsed > 500) {
+        console.warn('[ABsmartly Worker +' + elapsed + 'ms] ⚠️  SDK ready (slow load)');
+      } else {
+        perf('SDK ready');
+      }
     } catch (error) {
       console.error('[ABsmartly Worker] ❌ ABsmartlyInit failed:', error);
     }
-    return;
-  }
-
-  // Fallback: manual SDK init (no plugins)
-  perf('fallback: manual SDK init');
-  try {
-    var sdk = new ABsmartly.SDK(config);
-    perf('SDK configured');
-    var context;
-    var units = {};
-    units[unitType || 'user_id'] = unitId;
-
-    if (serverData) {
-      context = sdk.createContextWith({ units: units }, serverData);
-      perf('context created (server payload)');
-    } else {
-      context = sdk.createContext({ units: units });
-      perf('context created (will fetch)');
-    }
-
-    if (overrides && Object.keys(overrides).length > 0) {
-      for (var exp in overrides) {
-        context.override(exp, overrides[exp]);
-      }
-      perf('overrides applied');
-    }
-
-    window.ABsmartlyContext = context;
-    perf('context exposed on window');
-
-    if (serverData) {
-      perf('✅ ready (no API fetch needed)');
-    } else {
-      context.ready().then(function() {
-        perf('✅ ready (API fetch complete)');
-      });
-    }
-  } catch (error) {
-    console.error('[ABsmartly Worker] ❌ Failed to initialize SDK:', error);
   }
 })();
 "></script>
+      `.trim()
+    }
+
+    // Polling approach: More browser compatible, works with CSP, handles caching
+    return `
+<link rel="preload" href="${sdkUrl}" as="script">
+<script>
+window.__absmartlyConfig = ${JSON.stringify(config)};
+window.__absmartlyUnitId = ${unitId};
+window.__absmartlyUnitType = ${unitType};
+window.__absmartlyServerData = ${serverData};
+window.__absmartlyOverrides = ${overrides};
+window.__absmartlyPerfStart = performance.now();
+</script>
+<script src="${sdkUrl}" ${loadStrategy}></script>
+<script>
+(function(config, unitId, unitType, serverData, overrides) {
+  var perfStart = window.__absmartlyPerfStart;
+  var perf = function(name) {
+    var elapsed = (performance.now() - perfStart).toFixed(2);
+    console.log('[ABsmartly Worker +' + elapsed + 'ms] ⏱️  ' + name);
+  };
+
+  function init() {
+    if (typeof window.ABsmartlyInit !== 'undefined') {
+      perf('SDK loaded - using ABsmartlyInit from bundle');
+      try {
+        window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
+          domChanges: ${this.options.settings.ENABLE_DOM_CHANGES_PLUGIN !== false},
+          cookie: ${this.options.settings.ENABLE_COOKIE_PLUGIN !== false},
+          webVitals: ${useWebVitals}
+        });
+        var elapsed = (performance.now() - perfStart).toFixed(2);
+        if (elapsed > 500) {
+          console.warn('[ABsmartly Worker +' + elapsed + 'ms] ⚠️  SDK ready (slow load)');
+        } else {
+          perf('SDK ready');
+        }
+      } catch (error) {
+        console.error('[ABsmartly Worker] ❌ ABsmartlyInit failed:', error);
+      }
+    } else {
+      setTimeout(init, 50);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})(window.__absmartlyConfig, window.__absmartlyUnitId, window.__absmartlyUnitType, window.__absmartlyServerData, window.__absmartlyOverrides);
+</script>
     `.trim()
   }
 
@@ -389,7 +434,8 @@ window.__absmartlyPerfStart = performance.now();
     const unitId = JSON.stringify(payload.unitId)
 
     // Script loading strategy: async (default) or defer
-    const loadStrategy = this.options.settings.CLIENT_SDK_LOAD_STRATEGY || 'async'
+    const loadStrategy =
+      this.options.settings.CLIENT_SDK_LOAD_STRATEGY || 'async'
 
     if (!this.options.settings.PASS_SERVER_PAYLOAD) {
       this.options.logger.warn(
@@ -445,15 +491,30 @@ window.__absmartlyPerfStart = performance.now();
 
     // Inline the entire SDK bundle + init code in a single script tag
     // This eliminates network latency (~200ms savings)
-    // Use full bundle (with WebVitals) or lite bundle based on ENABLE_WEB_VITALS_PLUGIN setting
-    const useWebVitals = this.options.settings.ENABLE_WEB_VITALS_PLUGIN !== false
-    const inlineBundle = useWebVitals ? sdkBundle : sdkBundleLite
-    const bundleType = useWebVitals ? 'full' : 'lite'
+    // Select correct bundle based on deployment mode and WebVitals setting
+    const useWebVitals =
+      this.options.settings.ENABLE_WEB_VITALS_PLUGIN !== false
+    const isZarazMode = this.options.settings.DEPLOYMENT_MODE === 'zaraz'
 
-    return `
-<script>
-window.__absmartlyPerfStart = performance.now();
-${inlineBundle}
+    let inlineBundle: string
+    let bundleType: string
+
+    if (isZarazMode) {
+      // Zaraz mode: use Zaraz-specific bundles (with zaraz.track integration)
+      inlineBundle = useWebVitals ? sdkBundleZarazFull : sdkBundleZarazLite
+      bundleType = useWebVitals ? 'zaraz-full' : 'zaraz-lite'
+    } else {
+      // Worker/WebCM mode: use Worker bundles (no zaraz.track)
+      inlineBundle = useWebVitals ? sdkBundleWorkerFull : sdkBundleWorkerLite
+      bundleType = useWebVitals ? 'worker-full' : 'worker-lite'
+    }
+
+    // Base64 encoding: Proven solution that works reliably
+    // 33% size overhead (~64KB) but eliminates all template literal parsing issues
+    // TODO: Optimize with architect agent's recommendations (see plan agent output)
+    const bundleBase64 = Buffer.from(inlineBundle).toString('base64')
+
+    const scriptContent = `window.__absmartlyPerfStart = performance.now();
 
 (function() {
   var perfStart = window.__absmartlyPerfStart;
@@ -462,7 +523,17 @@ ${inlineBundle}
     console.log('[ABsmartly Worker +' + elapsed + 'ms] ⏱️  ' + name);
   };
 
-  perf('SDK inline bundle parsed (${bundleType})');
+  perf('SDK inline bundle loading (${bundleType})');
+
+  // Decode and execute SDK bundle from base64
+  try {
+    var bundleCode = atob('${bundleBase64}');
+    new Function(bundleCode)();
+    perf('SDK inline bundle executed');
+  } catch (error) {
+    console.error('[ABsmartly Worker] ❌ SDK bundle execution failed:', error);
+    return;
+  }
 
   var config = ${JSON.stringify(config)};
   var unitId = ${unitId};
@@ -484,9 +555,11 @@ ${inlineBundle}
   } else {
     console.error('[ABsmartly Worker] ❌ ABsmartlyInit not found in inline bundle');
   }
-})();
-</script>
-    `.trim()
+})();`
+
+    return `<script>
+${scriptContent}
+</script>`
   }
 
   shouldInjectSDK(): boolean {

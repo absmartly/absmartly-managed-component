@@ -1,0 +1,46 @@
+# Claude Code
+.claude/
+
+# Wrangler temp files
+.wrangler/
+worker/.wrangler/
+
+# Tests
+tests/
+*.test.ts
+*.test.js
+
+# Development files
+*.bak
+*.fixed
+*.new
+*.tmp
+
+# Source files (dist is published)
+src/
+
+# Config files
+tsconfig.json
+tsconfig.build.json
+vitest.config.ts
+.eslintrc.js
+.prettierrc
+esbuild.js
+deploy.sh
+
+# Documentation (keep only README)
+SECURITY_SUMMARY.txt
+ZARAZ_SETTINGS_GUIDE.md
+ZARAZ_SETUP.md
+
+# Worker subdirectory (has its own package)
+worker/
+
+# Public directory
+public/
+
+# Build artifacts
+*.tgz
+
+# Assets directory (bundled in dist)
+assets/

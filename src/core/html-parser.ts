@@ -335,7 +335,8 @@ export class HTMLParser {
     const styleTag = `<style id="absmartly-styles">${sanitizedRules}</style>`
 
     if (html.includes('</head>')) {
-      return html.replace('</head>', `${styleTag}</head>`)
+      // Use arrow function to avoid $ special character issues in replacement
+      return html.replace('</head>', () => `${styleTag}</head>`)
     } else {
       return styleTag + html
     }
