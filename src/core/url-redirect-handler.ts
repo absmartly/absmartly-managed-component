@@ -5,10 +5,13 @@ import {
   Logger,
 } from '../types'
 
+export type RedirectMode = 'reverse-proxy' | 301 | 302 | 303 | 307 | 308
+
 export interface URLRedirect {
   from: string
   to: string
-  type: 'domain' | 'page'
+  type: 'domain' | 'page' | 'pattern' | 'path-prefix'
+  mode?: RedirectMode
   preservePath?: boolean
 }
 
@@ -29,6 +32,7 @@ export interface RedirectMatch {
   experimentName: string
   variant: number
   isControl: boolean
+  controlBehavior?: 'redirect-same' | 'no-redirect'
 }
 
 export interface URLRedirectHandlerOptions {
@@ -76,24 +80,26 @@ export class URLRedirectHandler {
       const config = this.extractConfigForVariant(experiment, currentVariant)
 
       if (!config) {
-        if (currentVariant === 0) {
-          const anyConfig = this.getAnyVariantConfig(experiment)
-          if (anyConfig?.controlBehavior === 'redirect-same') {
-            this.logger.debug(
-              `[URLRedirectHandler] Control variant with redirect-same behavior for ${experiment.name}`
-            )
-            return {
-              redirect: {
-                from: url,
-                to: url,
-                type: 'page',
-                preservePath: true,
-              },
-              targetUrl: url,
-              experimentName: experiment.name,
-              variant: 0,
-              isControl: true,
-            }
+        const matchingConfig = this.findMatchingVariantConfig(
+          experiment,
+          parsedUrl
+        )
+        if (matchingConfig) {
+          this.logger.debug(
+            `[URLRedirectHandler] Variant ${currentVariant} has no redirect config but URL matches another variant's redirect for ${experiment.name}`
+          )
+          return {
+            redirect: {
+              from: url,
+              to: url,
+              type: 'page',
+              preservePath: true,
+            },
+            targetUrl: url,
+            experimentName: experiment.name,
+            variant: currentVariant,
+            isControl: currentVariant === 0,
+            controlBehavior: matchingConfig.controlBehavior,
           }
         }
         continue
@@ -117,6 +123,7 @@ export class URLRedirectHandler {
       )
 
       if (match) {
+        match.controlBehavior = config.controlBehavior
         this.logger.debug('[URLRedirectHandler] Found redirect match:', {
           experimentName: experiment.name,
           variant: currentVariant,
@@ -161,8 +168,9 @@ export class URLRedirectHandler {
     }
   }
 
-  private getAnyVariantConfig(
-    experiment: ABsmartlyExperiment
+  private findMatchingVariantConfig(
+    experiment: ABsmartlyExperiment,
+    parsedUrl: URL
   ): URLRedirectConfig | null {
     if (!experiment.variants) {
       return null
@@ -171,7 +179,15 @@ export class URLRedirectHandler {
     for (let i = 0; i < experiment.variants.length; i++) {
       const config = this.extractConfigForVariant(experiment, i)
       if (config) {
-        return config
+        const match = this.findMatch(
+          parsedUrl,
+          config.redirects,
+          experiment.name,
+          i
+        )
+        if (match) {
+          return config
+        }
       }
     }
 
@@ -193,12 +209,19 @@ export class URLRedirectHandler {
 
     for (const item of obj.redirects) {
       if (this.isValidRedirect(item)) {
-        redirects.push({
+        const redirect: URLRedirect = {
           from: item.from,
           to: item.to,
           preservePath: item.preservePath ?? true,
           type: item.type,
-        })
+        }
+        const parsedMode = this.parseRedirectMode(
+          (item as unknown as Record<string, unknown>).mode
+        )
+        if (parsedMode !== undefined) {
+          redirect.mode = parsedMode
+        }
+        redirects.push(redirect)
       }
     }
 
@@ -215,13 +238,52 @@ export class URLRedirectHandler {
     }
   }
 
+  private static VALID_REDIRECT_STATUS_CODES = new Set([
+    301, 302, 303, 307, 308,
+  ])
+
+  private parseRedirectMode(value: unknown): RedirectMode | undefined {
+    if (value === 'reverse-proxy') {
+      return 'reverse-proxy'
+    }
+    if (
+      typeof value === 'number' &&
+      URLRedirectHandler.VALID_REDIRECT_STATUS_CODES.has(value)
+    ) {
+      return value as RedirectMode
+    }
+    if (typeof value === 'string') {
+      const num = parseInt(value, 10)
+      if (URLRedirectHandler.VALID_REDIRECT_STATUS_CODES.has(num)) {
+        return num as RedirectMode
+      }
+    }
+    return undefined
+  }
+
+  static resolveMode(
+    redirect: URLRedirect,
+    context: 'server' | 'client'
+  ): RedirectMode {
+    if (redirect.mode !== undefined) {
+      if (context === 'client' && redirect.mode === 'reverse-proxy') {
+        return 302
+      }
+      return redirect.mode
+    }
+    return context === 'server' ? 'reverse-proxy' : 302
+  }
+
   private isValidRedirect(item: unknown): item is URLRedirect {
     if (!item || typeof item !== 'object') return false
     const obj = item as Record<string, unknown>
     return (
       typeof obj.from === 'string' &&
       typeof obj.to === 'string' &&
-      (obj.type === 'domain' || obj.type === 'page')
+      (obj.type === 'domain' ||
+        obj.type === 'page' ||
+        obj.type === 'pattern' ||
+        obj.type === 'path-prefix')
     )
   }
 
@@ -321,6 +383,12 @@ export class URLRedirectHandler {
     if (redirect.type === 'domain') {
       return this.matchDomainRedirect(currentUrl, redirect)
     }
+    if (redirect.type === 'path-prefix') {
+      return this.matchPathPrefixRedirect(currentUrl, redirect)
+    }
+    if (redirect.type === 'pattern') {
+      return this.matchPatternRedirect(currentUrl, redirect)
+    }
     return this.matchPageRedirect(currentUrl, redirect)
   }
 
@@ -353,6 +421,150 @@ export class URLRedirectHandler {
     }
 
     return toUrl.toString()
+  }
+
+  private matchPathPrefixRedirect(
+    currentUrl: URL,
+    redirect: URLRedirect
+  ): string | null {
+    let fromUrl: URL
+    try {
+      fromUrl = new URL(redirect.from)
+    } catch {
+      return null
+    }
+
+    if (currentUrl.origin !== fromUrl.origin) {
+      return null
+    }
+
+    let toUrl: URL
+    try {
+      toUrl = new URL(redirect.to)
+    } catch {
+      return null
+    }
+
+    const prefix = toUrl.pathname.replace(/\/$/, '')
+    toUrl.pathname = prefix + currentUrl.pathname
+
+    if (redirect.preservePath !== false) {
+      toUrl.search = currentUrl.search
+      toUrl.hash = currentUrl.hash
+    }
+
+    return toUrl.toString()
+  }
+
+  private matchPatternRedirect(
+    currentUrl: URL,
+    redirect: URLRedirect
+  ): string | null {
+    let fromUrl: URL
+    try {
+      fromUrl = new URL(redirect.from.replace(/\*/g, '__WILDCARD__'))
+    } catch {
+      return null
+    }
+
+    const fromOrigin = `${fromUrl.protocol}//${fromUrl.hostname}${fromUrl.port ? ':' + fromUrl.port : ''}`
+    if (currentUrl.origin !== fromOrigin) {
+      return null
+    }
+
+    const fromPathPattern = new URL(
+      redirect.from.replace(/\*/g, '__WILDCARD__')
+    ).pathname
+    const captures = this.matchWildcardPattern(
+      currentUrl.pathname,
+      fromPathPattern
+    )
+    if (!captures) {
+      return null
+    }
+
+    let toUrl: URL
+    try {
+      toUrl = new URL(
+        redirect.to
+          .replace(/\*/g, '__WILDCARD__')
+          .replace(/\$\d+/g, '__WILDCARD__')
+      )
+    } catch {
+      return null
+    }
+
+    const toOrigin = `${toUrl.protocol}//${toUrl.hostname}${toUrl.port ? ':' + toUrl.port : ''}`
+
+    const hasIndexedRefs = /\$\d+/.test(redirect.to)
+    let resultPath: string
+
+    if (hasIndexedRefs) {
+      const toPathRaw = new URL(redirect.to.replace(/\*/g, '__WILDCARD__'))
+        .pathname
+      resultPath = toPathRaw.replace(/\$(\d+)/g, (_, index) => {
+        const i = parseInt(index, 10) - 1
+        return i >= 0 && i < captures.length ? captures[i] : ''
+      })
+      resultPath = resultPath.replace(/__WILDCARD__/g, '')
+    } else {
+      const toPathTemplate = new URL(redirect.to.replace(/\*/g, '__WILDCARD__'))
+        .pathname
+      resultPath = toPathTemplate
+      for (const capture of captures) {
+        resultPath = resultPath.replace('__WILDCARD__', capture)
+      }
+      resultPath = resultPath.replace(/__WILDCARD__/g, '')
+    }
+
+    const result = new URL(toOrigin)
+    result.pathname = resultPath
+
+    if (redirect.preservePath !== false) {
+      result.search = currentUrl.search
+      result.hash = currentUrl.hash
+    }
+
+    return result.toString()
+  }
+
+  private matchWildcardPattern(
+    input: string,
+    pattern: string
+  ): string[] | null {
+    const parts = pattern.split('__WILDCARD__')
+
+    if (parts.length === 1) {
+      return input === pattern ? [] : null
+    }
+
+    const captures: string[] = []
+    let remaining = input
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+
+      if (i === 0) {
+        if (!remaining.startsWith(part)) {
+          return null
+        }
+        remaining = remaining.slice(part.length)
+      } else if (i === parts.length - 1) {
+        if (!remaining.endsWith(part)) {
+          return null
+        }
+        captures.push(remaining.slice(0, remaining.length - part.length))
+      } else {
+        const idx = remaining.indexOf(part)
+        if (idx === -1) {
+          return null
+        }
+        captures.push(remaining.slice(0, idx))
+        remaining = remaining.slice(idx + part.length)
+      }
+    }
+
+    return captures
   }
 
   private matchPageRedirect(
