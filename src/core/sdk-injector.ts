@@ -36,19 +36,14 @@ export interface ClientSDKConfig {
 export class SDKInjector {
   constructor(private options: SDKInjectorOptions) {}
 
-  private getPluginConfigStr(): string {
+  private getPluginConfig(): Record<string, unknown> {
     const { settings } = this.options
-    const trackerConfig = settings.TRACKER_CONFIG
-    let trackerStr = 'false'
-    if (trackerConfig) {
-      trackerStr = JSON.stringify(trackerConfig)
+    return {
+      domChanges: settings.ENABLE_DOM_CHANGES_PLUGIN !== false,
+      cookie: settings.ENABLE_COOKIE_PLUGIN !== false,
+      webVitals: settings.ENABLE_WEB_VITALS_PLUGIN !== false,
+      tracker: settings.TRACKER_CONFIG || false,
     }
-    return `{
-  domChanges: ${settings.ENABLE_DOM_CHANGES_PLUGIN !== false},
-  cookie: ${settings.ENABLE_COOKIE_PLUGIN !== false},
-  webVitals: ${settings.ENABLE_WEB_VITALS_PLUGIN !== false},
-  tracker: ${trackerStr}
-}`
   }
 
   generateInjectionScript(payload: SDKInjectionPayload): string {
@@ -257,11 +252,11 @@ export class SDKInjector {
   queryPrefix: ${JSON.stringify(this.options.settings.OVERRIDE_QUERY_PREFIX || '_')}
 }`
 
-      const pluginConfigStr = this.getPluginConfigStr()
+      const pluginConfigJson = JSON.stringify(this.getPluginConfig())
 
       this.options.logger.log('Generated config strings for Zaraz mode', {
         configStr,
-        pluginConfigStr,
+        pluginConfigJson,
         unitId,
         unitType,
         serverData: serverData === 'null' ? null : '<context data>',
@@ -283,7 +278,7 @@ export class SDKInjector {
         ', ' +
         overrides +
         ', ' +
-        pluginConfigStr +
+        pluginConfigJson +
         ');'
       )
     }
@@ -339,6 +334,7 @@ window.__absmartlyUnitId = ${unitId};
 window.__absmartlyUnitType = ${unitType};
 window.__absmartlyServerData = ${serverData};
 window.__absmartlyOverrides = ${overrides};
+window.__absmartlyPluginConfig = ${JSON.stringify(this.getPluginConfig())};
 window.__absmartlyPerfStart = performance.now();
 </script>
 <script src="${sdkUrl}" ${loadStrategy} onload="
@@ -360,7 +356,7 @@ window.__absmartlyPerfStart = performance.now();
   if (typeof window.ABsmartlyInit === 'function') {
     perf('using ABsmartlyInit from bundle');
     try {
-      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, ${this.getPluginConfigStr()});
+      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, window.__absmartlyPluginConfig);
       var elapsed = (performance.now() - perfStart).toFixed(2);
       if (elapsed > 500) {
         console.warn('[ABsmartly Worker +' + elapsed + 'ms] ⚠️  SDK ready (slow load)');
@@ -385,6 +381,7 @@ window.__absmartlyUnitId = ${unitId};
 window.__absmartlyUnitType = ${unitType};
 window.__absmartlyServerData = ${serverData};
 window.__absmartlyOverrides = ${overrides};
+window.__absmartlyPluginConfig = ${JSON.stringify(this.getPluginConfig())};
 window.__absmartlyPerfStart = performance.now();
 </script>
 <script src="${sdkUrl}" ${loadStrategy}></script>
@@ -400,11 +397,7 @@ window.__absmartlyPerfStart = performance.now();
     if (typeof window.ABsmartlyInit !== 'undefined') {
       perf('SDK loaded - using ABsmartlyInit from bundle');
       try {
-        window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
-          domChanges: ${this.options.settings.ENABLE_DOM_CHANGES_PLUGIN !== false},
-          cookie: ${this.options.settings.ENABLE_COOKIE_PLUGIN !== false},
-          webVitals: ${useWebVitals}
-        });
+        window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, window.__absmartlyPluginConfig);
         var elapsed = (performance.now() - perfStart).toFixed(2);
         if (elapsed > 500) {
           console.warn('[ABsmartly Worker +' + elapsed + 'ms] ⚠️  SDK ready (slow load)');
@@ -551,7 +544,7 @@ window.__absmartlyPerfStart = performance.now();
   if (typeof window.ABsmartlyInit === 'function') {
     perf('using ABsmartlyInit from inline bundle');
     try {
-      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, ${this.getPluginConfigStr()});
+      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, ${JSON.stringify(this.getPluginConfig())});
     } catch (error) {
       console.error('[ABsmartly Worker] ❌ ABsmartlyInit failed:', error);
     }
