@@ -11,6 +11,7 @@ import {
   createContext,
   initializeDOMChangesPlugin,
   initializeWebVitalsPlugin,
+  initializeDOMTracker,
   type SDKInitParams,
 } from './core'
 
@@ -36,7 +37,8 @@ export function createABsmartlyInit(
   CookiePlugin: any,
   WebVitalsPlugin: any | null,
   getOverrides: any,
-  options: ABsmartlyInitOptions
+  options: ABsmartlyInitOptions,
+  DOMTrackerModule?: any,
 ) {
   return function (
     config: SDKInitParams['config'],
@@ -188,6 +190,18 @@ export function createABsmartlyInit(
         pluginInstances.webVitals = initializeWebVitalsPlugin(
           WebVitalsPlugin,
           context,
+          debugLog,
+          options.logPrefix
+        )
+      }
+
+      if (plugins.tracker !== false && DOMTrackerModule) {
+        const trackerConfig = typeof plugins.tracker === 'object' ? plugins.tracker : {}
+        pluginInstances.tracker = initializeDOMTracker(
+          DOMTrackerModule,
+          context,
+          trackerConfig,
+          options.eventLogger,
           debugLog,
           options.logPrefix
         )

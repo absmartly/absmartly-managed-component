@@ -82,6 +82,12 @@ export interface ABsmartlySettings extends MCComponentSettings {
   ENABLE_DOM_CHANGES_PLUGIN?: boolean // Default: true
   ENABLE_COOKIE_PLUGIN?: boolean // Default: true
   ENABLE_WEB_VITALS_PLUGIN?: boolean // Default: true
+  TRACKER_CONFIG?: {
+    rules?: Array<{ selector: string; event: string; on?: string; props?: Record<string, unknown> }>
+    presets?: string[]
+    scrollDepth?: { thresholds?: number[] } | boolean
+    timeOnPage?: { thresholds?: number[] } | boolean
+  }
 
   // Overrides
   OVERRIDE_QUERY_PREFIX?: string

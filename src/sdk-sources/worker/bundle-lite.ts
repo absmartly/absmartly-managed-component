@@ -10,6 +10,7 @@ import * as ABsmartlySDK from '@absmartly/javascript-sdk'
 import { DOMChangesPluginLite } from '@absmartly/sdk-plugins/dom-changes'
 import { CookiePlugin } from '@absmartly/sdk-plugins/cookie'
 import { getOverrides } from '@absmartly/sdk-plugins/overrides'
+import * as DOMTrackerModule from '@absmartly/dom-tracker'
 
 // Expose SDK on window
 ;(window as any).ABsmartly = ABsmartlySDK
@@ -31,8 +32,6 @@ console.log(`[${LOG_PREFIX}] SDK Bundle Version: ${BUNDLE_VERSION}`)
     logPrefix: LOG_PREFIX,
     bundleVersion: BUNDLE_VERSION,
     includeWebVitals: false,
-    // No eventLogger - Worker mode doesn't use Zaraz
-    // No onBeforeInit - No Zaraz tracking
-    // No onCookiePlugin - No HttpOnly cookie setter
-  }
+  },
+  DOMTrackerModule,
 )

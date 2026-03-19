@@ -22,10 +22,25 @@ export interface SDKConfig {
   queryPrefix?: string
 }
 
+export interface TrackerRuleConfig {
+  selector: string
+  event: string
+  on?: string
+  props?: Record<string, unknown>
+}
+
+export interface TrackerConfig {
+  rules?: TrackerRuleConfig[]
+  presets?: string[]
+  scrollDepth?: { thresholds?: number[] } | boolean
+  timeOnPage?: { thresholds?: number[] } | boolean
+}
+
 export interface PluginConfig {
   domChanges?: boolean
   cookie?: boolean
   webVitals?: boolean
+  tracker?: TrackerConfig | false
 }
 
 export interface PerfMarks {
@@ -205,6 +220,79 @@ export function initializeWebVitalsPlugin(
     return plugin
   } catch (error) {
     console.error(`[${logPrefix}] Failed to load WebVitalsPlugin:`, error)
+    return null
+  }
+}
+
+export function initializeDOMTracker(
+  DOMTrackerModule: any,
+  context: any,
+  trackerConfig: TrackerConfig,
+  eventLogger: ((event: string, data: any) => void) | undefined,
+  debugLog: (...args: any[]) => void,
+  logPrefix: string
+) {
+  try {
+    const { DOMTracker, scrollDepth, timeOnPage, hubspotForms } = DOMTrackerModule
+
+    const onEvent: Array<(event: string, props: Record<string, unknown>) => void> = [
+      (event: string, props: Record<string, unknown>) => {
+        try { context.track(event, props) } catch (_e) { /* context may not be ready */ }
+      },
+    ]
+
+    if (eventLogger) {
+      onEvent.push((event: string, props: Record<string, unknown>) => {
+        try { eventLogger(event, props) } catch (_e) { /* ignore */ }
+      })
+    }
+
+    const onAttribute: Array<(attrs: Record<string, unknown>) => void> = [
+      (attrs: Record<string, unknown>) => {
+        try { context.attributes(attrs) } catch (_e) { /* context may not be ready */ }
+      },
+    ]
+
+    const trackers: any[] = []
+    if (trackerConfig.scrollDepth !== false) {
+      const scrollConfig = typeof trackerConfig.scrollDepth === 'object'
+        ? trackerConfig.scrollDepth
+        : { thresholds: [25, 50, 75, 100] }
+      trackers.push(scrollDepth(scrollConfig))
+    }
+    if (trackerConfig.timeOnPage !== false) {
+      const timeConfig = typeof trackerConfig.timeOnPage === 'object'
+        ? trackerConfig.timeOnPage
+        : { thresholds: [10, 30, 60, 180] }
+      trackers.push(timeOnPage(timeConfig))
+    }
+
+    const presets: any[] = []
+    if (trackerConfig.presets) {
+      for (const preset of trackerConfig.presets) {
+        if (preset === 'hubspot-forms' && hubspotForms) {
+          presets.push(hubspotForms())
+        }
+      }
+    }
+
+    const tracker = new DOMTracker({
+      onEvent,
+      onAttribute,
+      rules: trackerConfig.rules || [],
+      trackers,
+      presets,
+    })
+
+    debugLog('DOMTracker initialized', {
+      rules: (trackerConfig.rules || []).length,
+      trackers: trackers.length,
+      presets: presets.length,
+    })
+
+    return tracker
+  } catch (error) {
+    console.error(`[${logPrefix}] Failed to initialize DOMTracker:`, error)
     return null
   }
 }

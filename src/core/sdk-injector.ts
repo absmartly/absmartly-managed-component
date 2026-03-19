@@ -36,6 +36,21 @@ export interface ClientSDKConfig {
 export class SDKInjector {
   constructor(private options: SDKInjectorOptions) {}
 
+  private getPluginConfigStr(): string {
+    const { settings } = this.options
+    const trackerConfig = settings.TRACKER_CONFIG
+    let trackerStr = 'false'
+    if (trackerConfig) {
+      trackerStr = JSON.stringify(trackerConfig)
+    }
+    return `{
+  domChanges: ${settings.ENABLE_DOM_CHANGES_PLUGIN !== false},
+  cookie: ${settings.ENABLE_COOKIE_PLUGIN !== false},
+  webVitals: ${settings.ENABLE_WEB_VITALS_PLUGIN !== false},
+  tracker: ${trackerStr}
+}`
+  }
+
   generateInjectionScript(payload: SDKInjectionPayload): string {
     const { settings } = this.options
 
@@ -242,11 +257,7 @@ export class SDKInjector {
   queryPrefix: ${JSON.stringify(this.options.settings.OVERRIDE_QUERY_PREFIX || '_')}
 }`
 
-      const pluginConfigStr = `{
-  domChanges: ${this.options.settings.ENABLE_DOM_CHANGES_PLUGIN !== false},
-  cookie: ${this.options.settings.ENABLE_COOKIE_PLUGIN !== false},
-  webVitals: ${this.options.settings.ENABLE_WEB_VITALS_PLUGIN !== false}
-}`
+      const pluginConfigStr = this.getPluginConfigStr()
 
       this.options.logger.log('Generated config strings for Zaraz mode', {
         configStr,
@@ -349,11 +360,7 @@ window.__absmartlyPerfStart = performance.now();
   if (typeof window.ABsmartlyInit === 'function') {
     perf('using ABsmartlyInit from bundle');
     try {
-      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
-        domChanges: ${this.options.settings.ENABLE_DOM_CHANGES_PLUGIN !== false},
-        cookie: ${this.options.settings.ENABLE_COOKIE_PLUGIN !== false},
-        webVitals: ${useWebVitals}
-      });
+      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, ${this.getPluginConfigStr()});
       var elapsed = (performance.now() - perfStart).toFixed(2);
       if (elapsed > 500) {
         console.warn('[ABsmartly Worker +' + elapsed + 'ms] ⚠️  SDK ready (slow load)');
@@ -544,11 +551,7 @@ window.__absmartlyPerfStart = performance.now();
   if (typeof window.ABsmartlyInit === 'function') {
     perf('using ABsmartlyInit from inline bundle');
     try {
-      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, {
-        domChanges: true,
-        cookie: false,
-        webVitals: ${useWebVitals}
-      });
+      window.ABsmartlyInit(config, unitId, unitType, serverData, overrides, ${this.getPluginConfigStr()});
     } catch (error) {
       console.error('[ABsmartly Worker] ❌ ABsmartlyInit failed:', error);
     }
