@@ -34,6 +34,7 @@ export interface TrackerConfig {
   presets?: string[]
   scrollDepth?: { thresholds?: number[] } | boolean
   timeOnPage?: { thresholds?: number[] } | boolean
+  spa?: boolean
 }
 
 export interface PluginConfig {
@@ -282,6 +283,7 @@ export function initializeDOMTracker(
       rules: trackerConfig.rules || [],
       trackers,
       presets,
+      spa: trackerConfig.spa ?? false,
     })
 
     debugLog('DOMTracker initialized', {
