@@ -271,8 +271,10 @@ export function initializeDOMTracker(
     const presets: any[] = []
     if (trackerConfig.presets) {
       for (const preset of trackerConfig.presets) {
-        if (preset === 'hubspot-forms' && hubspotForms) {
-          presets.push(hubspotForms())
+        const presetName = typeof preset === 'string' ? preset : preset?.name
+        const presetConfig = typeof preset === 'object' ? preset : undefined
+        if (presetName === 'hubspot-forms' && hubspotForms) {
+          presets.push(hubspotForms(presetConfig))
         }
       }
     }
