@@ -234,7 +234,7 @@ export function initializeDOMTracker(
   logPrefix: string
 ) {
   try {
-    const { DOMTracker, scrollDepth, timeOnPage, hubspotForms } = DOMTrackerModule
+    const { DOMTracker, scrollDepth, timeOnPage, hubspotForms, rageClicks, deadClicks, elementVisibility, outboundLinks, errorTracker } = DOMTrackerModule
 
     const onEvent: Array<(event: string, props: Record<string, unknown>) => void> = [
       (event: string, props: Record<string, unknown>) => {
@@ -266,6 +266,24 @@ export function initializeDOMTracker(
         ? trackerConfig.timeOnPage
         : { thresholds: [10, 30, 60, 180] }
       trackers.push(timeOnPage(timeConfig))
+    }
+    if (trackerConfig.rageClicks !== false && rageClicks) {
+      const cfg = typeof trackerConfig.rageClicks === 'object' ? trackerConfig.rageClicks : undefined
+      trackers.push(rageClicks(cfg))
+    }
+    if (trackerConfig.deadClicks !== false && deadClicks) {
+      trackers.push(deadClicks())
+    }
+    if (trackerConfig.elementVisibility !== false && elementVisibility) {
+      const cfg = typeof trackerConfig.elementVisibility === 'object' ? trackerConfig.elementVisibility : undefined
+      trackers.push(elementVisibility(cfg))
+    }
+    if (trackerConfig.outboundLinks !== false && outboundLinks) {
+      trackers.push(outboundLinks())
+    }
+    if (trackerConfig.errorTracking !== false && errorTracker) {
+      const cfg = typeof trackerConfig.errorTracking === 'object' ? trackerConfig.errorTracking : undefined
+      trackers.push(errorTracker(cfg))
     }
 
     const presets: any[] = []
