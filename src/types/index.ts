@@ -84,9 +84,15 @@ export interface ABsmartlySettings extends MCComponentSettings {
   ENABLE_WEB_VITALS_PLUGIN?: boolean // Default: true
   TRACKER_CONFIG?: {
     rules?: Array<{ selector: string; event: string; on?: string; props?: Record<string, unknown> }>
-    presets?: string[]
+    presets?: Array<string | Record<string, unknown>>
     scrollDepth?: { thresholds?: number[] } | boolean
     timeOnPage?: { thresholds?: number[] } | boolean
+    rageClicks?: boolean | Record<string, unknown>
+    deadClicks?: boolean | Record<string, unknown>
+    elementVisibility?: { threshold?: number; rules?: Array<{ selector: string; event: string }> } | boolean
+    outboundLinks?: boolean | Record<string, unknown>
+    errorTracking?: { maxErrors?: number; dedupeWindow?: number } | boolean
+    spa?: boolean
   }
 
   // Overrides

@@ -31,9 +31,14 @@ export interface TrackerRuleConfig {
 
 export interface TrackerConfig {
   rules?: TrackerRuleConfig[]
-  presets?: string[]
+  presets?: Array<string | Record<string, unknown>>
   scrollDepth?: { thresholds?: number[] } | boolean
   timeOnPage?: { thresholds?: number[] } | boolean
+  rageClicks?: boolean | Record<string, unknown>
+  deadClicks?: boolean | Record<string, unknown>
+  elementVisibility?: { threshold?: number; rules?: Array<{ selector: string; event: string }> } | boolean
+  outboundLinks?: boolean | Record<string, unknown>
+  errorTracking?: { maxErrors?: number; dedupeWindow?: number } | boolean
   spa?: boolean
 }
 
